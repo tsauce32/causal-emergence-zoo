@@ -1,0 +1,27 @@
+{
+  "id": "my_new_system_4",
+  "name": "My new four-state benchmark",
+  "description": "A short description of what the system is.",
+  "conceptual_role": "mesoscale peak / top-heavy emergence / no emergence / other",
+  "state_labels": ["s0", "s1", "s2", "s3"],
+  "tpm": [
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0]
+  ],
+  "expected_behavior": {
+    "summary": "Explain what a compatible implementation should discover.",
+    "best_partition": [[0], [1], [2], [3]],
+    "deltaCP_sign": "zero"
+  },
+  "provenance": {
+    "type": "synthetic",
+    "generator": "generators/my_generator.py",
+    "seed": null,
+    "references": []
+  },
+  "notes": [
+    "Add any convention-sensitive details here."
+  ]
+}

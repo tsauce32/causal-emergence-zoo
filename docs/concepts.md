@@ -2,6 +2,8 @@
 
 This project is a benchmark zoo for causal emergence research. It focuses on example systems and expected outputs, not on replacing full analysis libraries.
 
+The practical question it answers is: if a causal-emergence implementation analyzes this TPM under the zoo convention, what should it return?
+
 ## Causal Emergence
 
 Causal emergence studies cases where a macro description of a system can have stronger or cleaner causal structure than the micro description. In finite Markov systems, this often means grouping microstates into macrostates and comparing causal quantities across scales.

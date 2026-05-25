@@ -2,6 +2,15 @@
 
 `causal-emergence-zoo` treats benchmark systems as reproducible data artifacts. Each fixture should be small enough to inspect or generated from a transparent script.
 
+The project contract is:
+
+```text
+Given this TPM,
+under these conventions,
+with this coarse-graining rule,
+these are the expected multiscale outputs.
+```
+
 ## System Record
 
 Each system stores:

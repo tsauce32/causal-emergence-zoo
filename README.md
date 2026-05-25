@@ -4,6 +4,23 @@
 
 The project is intentionally not a full causal-emergence analysis package. Its job is to be a reliable zoo of specimens: finite Markov systems with known or computed multiscale causal structure that other tools can load, validate, plot, and test against.
 
+## Problem This Solves
+
+Causal-emergence implementations can disagree because of bugs, different normalization choices, different intervention distributions, different coarse-graining rules, or different hierarchy-search methods.
+
+Without shared benchmark systems, it is hard to tell whether a disagreement is scientifically meaningful or just a convention mismatch.
+
+`causal-emergence-zoo` provides a calibration contract:
+
+```text
+Given this TPM,
+under these conventions,
+with this coarse-graining rule,
+these are the expected multiscale outputs.
+```
+
+The goal is to make causal-emergence results easier to compare, debug, and reproduce.
+
 ## What Is Included
 
 - Microscale transition probability matrices (TPMs)
@@ -61,7 +78,7 @@ docs/          Concept notes and benchmark design docs
 ```bash
 python -m pip install -e ".[dev]"
 python generators/generate_starter_systems.py
-pytest
+python -m pytest
 ```
 
 Load a benchmark:
@@ -74,6 +91,24 @@ print(system["microscale"]["metrics"]["causal_power"])
 print(system["emergent_hierarchy"]["best_partition"]["deltaCP"])
 ```
 
+Use the CLI:
+
+```bash
+cez list
+cez summarize two_block_noisy_4 --notes
+cez validate two_block_noisy_4
+cez compare two_block_noisy_4 examples/implementation-result.example.json
+```
+
+## Passing Information Into The Zoo
+
+There are two main information paths:
+
+1. Add a new benchmark system using `examples/benchmark-input.template.json` and `schemas/benchmark-input.schema.json`.
+2. Compare another implementation's output using `examples/implementation-result.example.json` and `schemas/implementation-result.schema.json`.
+
+See [docs/input-format.md](docs/input-format.md) for the full contract.
+
 ## Design Goals
 
 1. Provide shared, inspectable fixtures for causal emergence implementations.
@@ -82,12 +117,27 @@ print(system["emergent_hierarchy"]["best_partition"]["deltaCP"])
 4. Include exhaustive partition data when tractable and documented heuristics when not.
 5. Keep package utilities lightweight; serious analysis belongs in dedicated tools.
 
+## Documentation
+
+- [Problem statement](docs/problem-statement.md)
+- [Conventions](docs/conventions.md)
+- [Input and comparison formats](docs/input-format.md)
+- [Adapter guide](docs/adapter-guide.md)
+- [Compatibility levels](docs/compatibility-levels.md)
+- [Benchmark design](docs/benchmark-design.md)
+- [Benchmark cards](docs/benchmarks/README.md)
+- [Contributing](CONTRIBUTING.md)
+
 ## Roadmap
 
 - Add Hoel CE 2.0-style examples that match published figures more closely.
 - Add Engineering Emergence examples with branching greedy hierarchy traces for systems too large to exhaust.
 - Add reference plots for each benchmark family.
 - Add adapters/examples for comparing outputs from PyMergence and `einet`.
+
+## Maintainer
+
+Started by Thomas Hampton, `ThomasRHampton@gmail.com`.
 
 ## Contributing
 

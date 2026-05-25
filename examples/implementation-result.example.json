@@ -1,0 +1,18 @@
+{
+  "benchmark_id": "two_block_noisy_4",
+  "implementation": {
+    "name": "example-causal-emergence-tool",
+    "version": "0.0.1",
+    "url": "https://example.org"
+  },
+  "microscale": {
+    "metrics": {
+      "causal_power": 0.265502203205
+    }
+  },
+  "best_partition": {
+    "partition_id": "01|23",
+    "blocks": [[0, 1], [2, 3]],
+    "deltaCP": 0.265502203206
+  }
+}

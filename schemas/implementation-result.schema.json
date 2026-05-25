@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/causal-emergence-zoo/implementation-result.schema.json",
+  "title": "causal-emergence-zoo implementation comparison result",
+  "description": "Minimal output format that another causal-emergence implementation can pass to `cez compare`.",
+  "type": "object",
+  "required": ["benchmark_id"],
+  "properties": {
+    "benchmark_id": {
+      "type": "string",
+      "description": "The benchmark system id, such as two_block_noisy_4."
+    },
+    "implementation": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "url": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "microscale": {
+      "type": "object",
+      "properties": {
+        "metrics": { "$ref": "#/$defs/metrics" }
+      },
+      "additionalProperties": true
+    },
+    "best_partition": {
+      "type": "object",
+      "properties": {
+        "partition_id": { "type": "string" },
+        "blocks": { "$ref": "#/$defs/blocks" },
+        "deltaCP": { "type": "number" },
+        "causal_power": { "type": "number" }
+      },
+      "additionalProperties": true
+    },
+    "partitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "blocks": { "$ref": "#/$defs/blocks" },
+          "metrics": { "$ref": "#/$defs/metrics" },
+          "deltaCP": { "type": "number" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "blocks": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "row_entropy_bits": { "type": "number" },
+        "path_entropy_bits": { "type": "number" },
+        "average_effect_entropy_bits": { "type": "number" },
+        "determinism": { "type": "number" },
+        "specificity": { "type": "number" },
+        "degeneracy": { "type": "number" },
+        "effective_information_bits": { "type": "number" },
+        "causal_power": { "type": "number" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

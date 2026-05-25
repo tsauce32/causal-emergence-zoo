@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
+  { name = "Thomas Hampton", email = "ThomasRHampton@gmail.com" },
   { name = "causal-emergence-zoo contributors" }
 ]
 keywords = [
@@ -27,6 +28,14 @@ classifiers = [
   "Topic :: Scientific/Engineering"
 ]
 dependencies = []
+
+[project.scripts]
+cez = "causal_emergence_zoo.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/tsauce32/causal-emergence-zoo"
+Repository = "https://github.com/tsauce32/causal-emergence-zoo"
+Issues = "https://github.com/tsauce32/causal-emergence-zoo/issues"
 
 [project.optional-dependencies]
 plots = ["matplotlib>=3.8"]
