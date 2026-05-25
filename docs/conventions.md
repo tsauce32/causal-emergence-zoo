@@ -63,6 +63,21 @@ deltaCP = partition causal_power - microscale causal_power
 
 This is the current fixture-level convention. Engineering Emergence also discusses non-redundant apportioning across paths in the lattice. That richer hierarchy convention is a planned compatibility target.
 
+## Harmonization Layer
+
+The zoo's baseline convention is `zoo.ce1`. External results may report other score namespaces instead of, or in addition to, `zoo.ce1`:
+
+- `published.ce1`
+- `ce2`
+- `engineering`
+- `svd`
+- `dynamical_independence`
+- `prediction`
+
+Each result should also declare its `algorithm_family`, `input_view`, `macro_maps`, and `comparison_tier` when it is not a simple exact CE 1.0 partition comparison.
+
+See `docs/algorithm-harmonization-spec-change.md` and `docs/input-format.md`.
+
 ## Partition Enumeration
 
 For small systems, the zoo enumerates every set partition. Current exhaustive fixtures include:

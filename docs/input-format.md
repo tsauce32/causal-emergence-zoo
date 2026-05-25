@@ -49,7 +49,28 @@ Then compare it with:
 cez compare two_block_noisy_4 examples/implementation-result.example.json
 ```
 
-The comparison format is intentionally partial. A tool can start by reporting only microscale metrics, then later add best partitions, `deltaCP`, or full partition results.
+The comparison format is intentionally partial. A tool can start by reporting only microscale metrics, then later add best partitions, `deltaCP`, macro maps, score namespaces, or full partition results.
+
+## Harmonized Result Fields
+
+Newer or adjacent causal-emergence algorithms do not always produce a single hard partition with zoo-style `deltaCP`. To compare them without forcing a false equivalence, implementation results may include:
+
+- `algorithm_family`: comparison contract, such as `ce1_partition_ei`, `network_ei`, `ce2_multiscale`, `engineering_emergence`, `svd_coarse_graining`, `dynamical_independence`, or `latent_dynamics`
+- `input_view`: what the implementation treated as primitive, such as a TPM, graph, Boolean network, trajectory, or linear system
+- `comparison_tier`: `exact`, `equivalent_macro`, `rank_agreement`, `qualitative`, or `exploratory`
+- `macro_maps`: hard partitions, variable groupings, projection matrices, stochastic maps, learned encoders, or hierarchy paths
+- `scores`: namespaced values, such as `zoo.ce1`, `published.ce1`, `ce2`, `engineering`, `svd`, `dynamical_independence`, or `prediction`
+- `artifacts`: optional macro TPMs, hierarchy profiles, plots, paths, or provenance outputs
+
+Examples:
+
+```text
+examples/implementation-result.example.json
+examples/network-ei-result.example.json
+examples/engineering-emergence-result.example.json
+```
+
+The old minimal result shape remains valid. If `comparison_tier` is omitted, `cez compare` treats the result as `exact`.
 
 ## CLI Commands
 
@@ -76,4 +97,6 @@ Compare an implementation result:
 
 ```bash
 cez compare two_block_noisy_4 examples/implementation-result.example.json
+cez compare preferential_attachment_alpha0_8 examples/network-ei-result.example.json
+cez compare hierarchical_two_cycle_8 examples/engineering-emergence-result.example.json
 ```

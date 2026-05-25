@@ -11,6 +11,14 @@ from typing import Any
 from causal_emergence_zoo.io import available_systems, load_system
 from causal_emergence_zoo.validation import validate_system
 
+COMPARISON_TIERS = {
+    "exact",
+    "equivalent_macro",
+    "rank_agreement",
+    "qualitative",
+    "exploratory",
+}
+
 
 def _blocks_label(blocks: list[list[int]]) -> str:
     return "[" + ", ".join("[" + ", ".join(str(state) for state in block) + "]" for block in blocks) + "]"
@@ -29,6 +37,198 @@ def _load_target(target: str) -> tuple[str, dict[str, Any]]:
 
 def _almost_equal(left: float, right: float, tolerance: float) -> bool:
     return abs(left - right) <= tolerance
+
+
+def _canonical_blocks(blocks: list[list[int]]) -> tuple[tuple[int, ...], ...]:
+    return tuple(sorted(tuple(sorted(block)) for block in blocks))
+
+
+def _partition_lookup(benchmark: dict[str, Any]) -> dict[tuple[tuple[int, ...], ...], dict[str, Any]]:
+    return {
+        _canonical_blocks(partition["blocks"]): partition
+        for partition in benchmark.get("partitions", [])
+    }
+
+
+def _macro_maps_by_id(result: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        macro_map["id"]: macro_map
+        for macro_map in result.get("macro_maps", [])
+        if "id" in macro_map
+    }
+
+
+def _compare_number(
+    failures: list[str],
+    label: str,
+    actual: float,
+    expected: float,
+    tolerance: float,
+) -> int:
+    if not _almost_equal(actual, expected, tolerance):
+        failures.append(f"{label}: got {actual}, expected {expected}.")
+    return 1
+
+
+def _compare_legacy_exact(
+    benchmark: dict[str, Any],
+    result: dict[str, Any],
+    failures: list[str],
+    tolerance: float,
+) -> int:
+    checked = 0
+
+    result_micro_metrics = result.get("microscale", {}).get("metrics", {})
+    expected_micro_metrics = benchmark["microscale"]["metrics"]
+    for key, expected in expected_micro_metrics.items():
+        if key in result_micro_metrics:
+            checked += _compare_number(
+                failures,
+                f"microscale.metrics.{key}",
+                result_micro_metrics[key],
+                expected,
+                tolerance,
+            )
+
+    result_best = result.get("best_partition", {})
+    expected_best = benchmark["emergent_hierarchy"]["best_partition"]
+    if "partition_id" in result_best:
+        checked += 1
+        if result_best["partition_id"] != expected_best["partition_id"]:
+            failures.append(
+                "best_partition.partition_id: "
+                f"got {result_best['partition_id']!r}, expected {expected_best['partition_id']!r}."
+            )
+    if "blocks" in result_best:
+        checked += 1
+        if _canonical_blocks(result_best["blocks"]) != _canonical_blocks(expected_best["blocks"]):
+            failures.append(
+                "best_partition.blocks: "
+                f"got {result_best['blocks']!r}, expected {expected_best['blocks']!r}."
+            )
+    if "deltaCP" in result_best:
+        checked += _compare_number(
+            failures,
+            "best_partition.deltaCP",
+            result_best["deltaCP"],
+            expected_best["deltaCP"],
+            tolerance,
+        )
+    if "causal_power" in result_best:
+        checked += _compare_number(
+            failures,
+            "best_partition.causal_power",
+            result_best["causal_power"],
+            expected_best["causal_power"],
+            tolerance,
+        )
+
+    return checked
+
+
+def _compare_harmonized_exact(
+    benchmark: dict[str, Any],
+    result: dict[str, Any],
+    failures: list[str],
+    tolerance: float,
+) -> int:
+    checked = 0
+    lookup = _partition_lookup(benchmark)
+    maps_by_id = _macro_maps_by_id(result)
+
+    for macro_map in result.get("macro_maps", []):
+        if macro_map.get("map_type") != "partition" or "blocks" not in macro_map:
+            continue
+        checked += 1
+        if _canonical_blocks(macro_map["blocks"]) not in lookup:
+            failures.append(f"macro_maps.{macro_map.get('id', '<unnamed>')} is not a valid partition.")
+
+    for score_index, score in enumerate(result.get("scores", [])):
+        if score.get("namespace") != "zoo.ce1":
+            continue
+        subject = score.get("subject")
+        values = score.get("values", {})
+        if subject in ("microscale", "micro", None):
+            expected_values = benchmark["microscale"]["metrics"]
+            expected_delta_cp = 0.0
+        elif subject in maps_by_id:
+            macro_map = maps_by_id[subject]
+            if macro_map.get("map_type") != "partition" or "blocks" not in macro_map:
+                failures.append(f"scores[{score_index}] subject {subject!r} is not a partition map.")
+                continue
+            partition = lookup.get(_canonical_blocks(macro_map["blocks"]))
+            if partition is None:
+                failures.append(f"scores[{score_index}] subject {subject!r} has no matching fixture partition.")
+                continue
+            expected_values = partition["metrics"]
+            expected_delta_cp = partition["deltaCP"]
+        else:
+            failures.append(f"scores[{score_index}] subject {subject!r} does not reference a known macro map.")
+            continue
+
+        for key, actual in values.items():
+            if key == "deltaCP":
+                checked += _compare_number(
+                    failures,
+                    f"scores[{score_index}].values.deltaCP",
+                    actual,
+                    expected_delta_cp,
+                    tolerance,
+                )
+            elif key in expected_values:
+                checked += _compare_number(
+                    failures,
+                    f"scores[{score_index}].values.{key}",
+                    actual,
+                    expected_values[key],
+                    tolerance,
+                )
+    return checked
+
+
+def _compare_equivalent_macro(benchmark: dict[str, Any], result: dict[str, Any], failures: list[str]) -> int:
+    expected = _canonical_blocks(benchmark["emergent_hierarchy"]["best_partition"]["blocks"])
+    candidate_blocks = []
+    if result.get("best_partition", {}).get("blocks"):
+        candidate_blocks.append(result["best_partition"]["blocks"])
+    candidate_blocks.extend(
+        macro_map["blocks"]
+        for macro_map in result.get("macro_maps", [])
+        if macro_map.get("map_type") == "partition" and "blocks" in macro_map
+    )
+
+    for blocks in candidate_blocks:
+        if _canonical_blocks(blocks) == expected:
+            return 1
+
+    failures.append("No reported partition macro map matches the expected best partition up to relabeling.")
+    return 1
+
+
+def _compare_rank_agreement(benchmark: dict[str, Any], result: dict[str, Any], failures: list[str]) -> int:
+    expected_top = benchmark["emergent_hierarchy"]["levels"][0]["partition_id"]
+    reported = result.get("ranked_partitions") or result.get("rankings", {}).get("partitions")
+    if not reported:
+        failures.append("rank_agreement requires ranked_partitions or rankings.partitions.")
+        return 1
+    first = reported[0]
+    reported_top = first.get("partition_id") if isinstance(first, dict) else first
+    if reported_top != expected_top:
+        failures.append(f"Top ranked partition is {reported_top!r}, expected {expected_top!r}.")
+    return 1
+
+
+def _compare_qualitative(benchmark: dict[str, Any], result: dict[str, Any], failures: list[str]) -> int:
+    expected_role = benchmark["conceptual_role"]
+    reported_role = result.get("qualitative_role") or result.get("classification")
+    if not reported_role:
+        failures.append("qualitative comparison requires qualitative_role or classification.")
+        return 1
+    expected_terms = {term.strip().lower() for term in expected_role.replace("/", ",").split(",")}
+    reported = str(reported_role).lower()
+    if not any(term and term in reported for term in expected_terms):
+        failures.append(f"Qualitative role {reported_role!r} does not match fixture role {expected_role!r}.")
+    return 1
 
 
 def list_systems(_: argparse.Namespace) -> int:
@@ -79,43 +279,26 @@ def compare_result(args: argparse.Namespace) -> int:
     result = _read_json(Path(args.result_json))
     failures: list[str] = []
     checked = 0
+    tier = result.get("comparison_tier", "exact")
 
     if result.get("benchmark_id") not in (None, benchmark["id"]):
         failures.append(
             f"benchmark_id is {result.get('benchmark_id')!r}, expected {benchmark['id']!r}."
         )
 
-    result_micro_metrics = result.get("microscale", {}).get("metrics", {})
-    expected_micro_metrics = benchmark["microscale"]["metrics"]
-    for key, expected in expected_micro_metrics.items():
-        if key in result_micro_metrics:
-            checked += 1
-            actual = result_micro_metrics[key]
-            if not _almost_equal(actual, expected, args.tolerance):
-                failures.append(f"microscale.metrics.{key}: got {actual}, expected {expected}.")
-
-    result_best = result.get("best_partition", {})
-    expected_best = benchmark["emergent_hierarchy"]["best_partition"]
-    if "partition_id" in result_best:
+    if tier not in COMPARISON_TIERS:
+        failures.append(f"comparison_tier is {tier!r}; expected one of {sorted(COMPARISON_TIERS)}.")
+    elif tier == "exact":
+        checked += _compare_legacy_exact(benchmark, result, failures, args.tolerance)
+        checked += _compare_harmonized_exact(benchmark, result, failures, args.tolerance)
+    elif tier == "equivalent_macro":
+        checked += _compare_equivalent_macro(benchmark, result, failures)
+    elif tier == "rank_agreement":
+        checked += _compare_rank_agreement(benchmark, result, failures)
+    elif tier == "qualitative":
+        checked += _compare_qualitative(benchmark, result, failures)
+    elif tier == "exploratory":
         checked += 1
-        if result_best["partition_id"] != expected_best["partition_id"]:
-            failures.append(
-                "best_partition.partition_id: "
-                f"got {result_best['partition_id']!r}, expected {expected_best['partition_id']!r}."
-            )
-    if "blocks" in result_best:
-        checked += 1
-        if result_best["blocks"] != expected_best["blocks"]:
-            failures.append(
-                "best_partition.blocks: "
-                f"got {result_best['blocks']!r}, expected {expected_best['blocks']!r}."
-            )
-    if "deltaCP" in result_best:
-        checked += 1
-        actual = result_best["deltaCP"]
-        expected = expected_best["deltaCP"]
-        if not _almost_equal(actual, expected, args.tolerance):
-            failures.append(f"best_partition.deltaCP: got {actual}, expected {expected}.")
 
     if checked == 0:
         failures.append("No comparable fields found. See schemas/implementation-result.schema.json.")
@@ -126,7 +309,7 @@ def compare_result(args: argparse.Namespace) -> int:
             print(f"  - {failure}")
         return 1
 
-    print(f"PASS {args.result_json} against {benchmark['id']} ({checked} checks)")
+    print(f"PASS {args.result_json} against {benchmark['id']} ({tier}, {checked} checks)")
     return 0
 
 

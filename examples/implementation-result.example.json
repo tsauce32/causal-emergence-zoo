@@ -5,6 +5,32 @@
     "version": "0.0.1",
     "url": "https://example.org"
   },
+  "algorithm_family": "ce1_partition_ei",
+  "input_view": {
+    "type": "tpm",
+    "intervention_convention": "uniform_microstates"
+  },
+  "comparison_tier": "exact",
+  "macro_maps": [
+    {
+      "id": "best_map",
+      "map_type": "partition",
+      "blocks": [[0, 1], [2, 3]],
+      "macro_state_count": 2
+    }
+  ],
+  "scores": [
+    {
+      "namespace": "zoo.ce1",
+      "subject": "best_map",
+      "unit": "bits_normalized",
+      "normalization": "effective_information_bits / log2(n_macro)",
+      "values": {
+        "causal_power": 0.531004406411,
+        "deltaCP": 0.265502203206
+      }
+    }
+  ],
   "microscale": {
     "metrics": {
       "causal_power": 0.265502203205

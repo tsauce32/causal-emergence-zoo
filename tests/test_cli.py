@@ -51,3 +51,106 @@ def test_cli_compare_result_json(tmp_path, capsys):
     output = capsys.readouterr().out
 
     assert "PASS" in output
+
+
+def test_cli_compare_harmonized_exact_result(tmp_path, capsys):
+    result = {
+        "benchmark_id": "two_block_noisy_4",
+        "algorithm_family": "ce1_partition_ei",
+        "input_view": {
+            "type": "tpm",
+            "intervention_convention": "uniform_microstates",
+        },
+        "comparison_tier": "exact",
+        "macro_maps": [
+            {
+                "id": "best_map",
+                "map_type": "partition",
+                "blocks": [[0, 1], [2, 3]],
+                "macro_state_count": 2,
+            }
+        ],
+        "scores": [
+            {
+                "namespace": "zoo.ce1",
+                "subject": "best_map",
+                "values": {
+                    "causal_power": 0.531004406411,
+                    "deltaCP": 0.265502203206,
+                },
+            }
+        ],
+    }
+    path = tmp_path / "harmonized.json"
+    path.write_text(json.dumps(result), encoding="utf-8")
+
+    assert main(["compare", "two_block_noisy_4", str(path)]) == 0
+
+    output = capsys.readouterr().out
+
+    assert "exact" in output
+
+
+def test_cli_compare_equivalent_macro_tier(tmp_path, capsys):
+    result = {
+        "benchmark_id": "two_block_noisy_4",
+        "algorithm_family": "svd_coarse_graining",
+        "comparison_tier": "equivalent_macro",
+        "macro_maps": [
+            {
+                "id": "projection_as_partition",
+                "map_type": "partition",
+                "blocks": [[2, 3], [0, 1]],
+                "macro_state_count": 2,
+            }
+        ],
+    }
+    path = tmp_path / "equivalent.json"
+    path.write_text(json.dumps(result), encoding="utf-8")
+
+    assert main(["compare", "two_block_noisy_4", str(path)]) == 0
+
+    output = capsys.readouterr().out
+
+    assert "equivalent_macro" in output
+
+
+def test_cli_compare_non_exact_tiers(tmp_path, capsys):
+    qualitative = tmp_path / "qualitative.json"
+    qualitative.write_text(
+        json.dumps(
+            {
+                "benchmark_id": "mesoscale_cycle_6",
+                "algorithm_family": "engineering_emergence",
+                "comparison_tier": "qualitative",
+                "classification": "mesoscale peak",
+            }
+        ),
+        encoding="utf-8",
+    )
+    exploratory = tmp_path / "exploratory.json"
+    exploratory.write_text(
+        json.dumps(
+            {
+                "benchmark_id": "hierarchical_two_cycle_8",
+                "algorithm_family": "engineering_emergence",
+                "comparison_tier": "exploratory",
+                "scores": [
+                    {
+                        "namespace": "engineering",
+                        "subject": "hierarchy",
+                        "values": {"profile": "multiple-path hierarchy"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert main(["compare", "mesoscale_cycle_6", str(qualitative)]) == 0
+    assert main(["compare", "hierarchical_two_cycle_8", str(exploratory)]) == 0
+
+    output = capsys.readouterr().out
+
+    assert "qualitative" in output
+    assert "exploratory" in output

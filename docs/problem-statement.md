@@ -15,6 +15,8 @@ Without shared benchmark systems and expected outputs, these disagreements are h
 
 The zoo tries to make that distinction easier.
 
+It also avoids a second problem: forcing every adjacent method into the same output shape. Some algorithms return hard partitions, while others return hierarchy paths, projection matrices, learned encoders, network scores, or qualitative hierarchy profiles. The harmonization layer lets those methods declare what they are reporting and how strict the comparison should be.
+
 ## The Contract
 
 For each benchmark, the zoo says:

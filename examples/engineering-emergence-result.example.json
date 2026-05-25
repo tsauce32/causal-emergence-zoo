@@ -1,0 +1,50 @@
+{
+  "benchmark_id": "hierarchical_two_cycle_8",
+  "implementation": {
+    "name": "example-engineering-emergence-tool",
+    "version": "0.0.1",
+    "url": "https://example.org/engineering"
+  },
+  "algorithm_family": "engineering_emergence",
+  "input_view": {
+    "type": "tpm",
+    "intervention_convention": "uniform_microstates"
+  },
+  "comparison_tier": "exploratory",
+  "macro_maps": [
+    {
+      "id": "illustrative_path",
+      "map_type": "hierarchy_path",
+      "path": [
+        {
+          "id": "pair_level",
+          "map_type": "partition",
+          "blocks": [[0, 1], [2, 3], [4, 5], [6, 7]],
+          "macro_state_count": 4
+        },
+        {
+          "id": "component_level",
+          "map_type": "partition",
+          "blocks": [[0, 1, 2, 3], [4, 5, 6, 7]],
+          "macro_state_count": 2
+        }
+      ]
+    }
+  ],
+  "scores": [
+    {
+      "namespace": "engineering",
+      "subject": "hierarchy",
+      "unit": "classification",
+      "values": {
+        "profile": "multiple-path hierarchy",
+        "top_heavy": false,
+        "bottom_heavy": false
+      }
+    }
+  ],
+  "artifacts": {
+    "hierarchy_profile": [0.0, 0.333333333333, 0.333333333333],
+    "notes": "Illustrative shape only; not a reference implementation trace."
+  }
+}

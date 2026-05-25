@@ -109,6 +109,8 @@ There are two main information paths:
 
 See [docs/input-format.md](docs/input-format.md) for the full contract.
 
+The implementation-result format now includes an optional harmonization layer for multiple algorithm families, macro-map types, score namespaces, and comparison tiers. This lets CE 2.0, Engineering Emergence, network EI, SVD, dynamical-independence, or learned-latent methods report comparable outputs without pretending to use the same metric.
+
 ## Design Goals
 
 1. Provide shared, inspectable fixtures for causal emergence implementations.
@@ -124,6 +126,7 @@ See [docs/input-format.md](docs/input-format.md) for the full contract.
 - [Input and comparison formats](docs/input-format.md)
 - [Adapter guide](docs/adapter-guide.md)
 - [Compatibility levels](docs/compatibility-levels.md)
+- [Algorithm harmonization spec](docs/algorithm-harmonization-spec-change.md)
 - [Benchmark design](docs/benchmark-design.md)
 - [Benchmark cards](docs/benchmarks/README.md)
 - [Contributing](CONTRIBUTING.md)

@@ -1,0 +1,40 @@
+{
+  "benchmark_id": "preferential_attachment_alpha0_8",
+  "implementation": {
+    "name": "example-network-ei-tool",
+    "version": "0.0.1",
+    "url": "https://example.org/network-ei"
+  },
+  "algorithm_family": "network_ei",
+  "input_view": {
+    "type": "graph",
+    "graph_to_tpm_convention": "Seeded preferential-attachment graph converted to a random-walk TPM with self_loop_weight=0.1.",
+    "mapping_note": "The benchmark stores the derived TPM; this result records the graph-facing view used by the implementation."
+  },
+  "comparison_tier": "exploratory",
+  "macro_maps": [
+    {
+      "id": "network_modules",
+      "map_type": "partition",
+      "blocks": [[0, 2, 3], [1, 4], [5, 6, 7]],
+      "macro_state_count": 3,
+      "description": "Highest-scoring partition under the zoo fixture for this graph-derived TPM."
+    }
+  ],
+  "scores": [
+    {
+      "namespace": "published.ce1",
+      "subject": "network_modules",
+      "unit": "implementation_defined",
+      "normalization": "See implementation documentation.",
+      "values": {
+        "network_effective_information": 0.284654160497
+      }
+    }
+  ],
+  "artifacts": {
+    "graph_model": "preferential_attachment",
+    "seed": 1729,
+    "hub_bias_alpha": 0.0
+  }
+}
