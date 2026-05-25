@@ -1,0 +1,777 @@
+{
+  "schema_version": "0.1.0",
+  "id": "two_block_noisy_4",
+  "name": "Four-state noisy two-block system",
+  "description": "Two noisy equivalence classes where the natural two-block macro scale has higher normalized causal power than the microscale.",
+  "conceptual_role": "top-heavy emergence / equivalence-class coarse graining",
+  "state_count": 4,
+  "state_labels": [
+    "s0",
+    "s1",
+    "s2",
+    "s3"
+  ],
+  "microscale": {
+    "partition_id": "0|1|2|3",
+    "tpm": [
+      [
+        0.45,
+        0.45,
+        0.05,
+        0.05
+      ],
+      [
+        0.45,
+        0.45,
+        0.05,
+        0.05
+      ],
+      [
+        0.05,
+        0.05,
+        0.45,
+        0.45
+      ],
+      [
+        0.05,
+        0.05,
+        0.45,
+        0.45
+      ]
+    ],
+    "metrics": {
+      "row_entropy_bits": 1.468995593589,
+      "path_entropy_bits": 3.468995593589,
+      "average_effect_entropy_bits": 2.0,
+      "determinism": 0.265502203205,
+      "specificity": 1.0,
+      "degeneracy": 0.0,
+      "effective_information_bits": 0.531004406411,
+      "causal_power": 0.265502203205
+    }
+  },
+  "partitions": [
+    {
+      "id": "0123",
+      "blocks": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ],
+      "macro_state_count": 1,
+      "macro_tpm": [
+        [
+          1.0
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 0.0,
+        "path_entropy_bits": 0.0,
+        "average_effect_entropy_bits": 0.0,
+        "determinism": 0.0,
+        "specificity": 0.0,
+        "degeneracy": 0.0,
+        "effective_information_bits": 0.0,
+        "causal_power": 0.0
+      },
+      "deltaCP": -0.265502203205
+    },
+    {
+      "id": "012|3",
+      "blocks": [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          3
+        ]
+      ],
+      "macro_state_count": 2,
+      "macro_tpm": [
+        [
+          0.816666666667,
+          0.183333333333
+        ],
+        [
+          0.55,
+          0.45
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 0.840044773409,
+        "path_entropy_bits": 1.840044773409,
+        "average_effect_entropy_bits": 0.900719679862,
+        "determinism": 0.159955226591,
+        "specificity": 0.900719679862,
+        "degeneracy": 0.099280320138,
+        "effective_information_bits": 0.060674906453,
+        "causal_power": 0.060674906453
+      },
+      "deltaCP": -0.204827296752
+    },
+    {
+      "id": "013|2",
+      "blocks": [
+        [
+          0,
+          1,
+          3
+        ],
+        [
+          2
+        ]
+      ],
+      "macro_state_count": 2,
+      "macro_tpm": [
+        [
+          0.816666666667,
+          0.183333333333
+        ],
+        [
+          0.55,
+          0.45
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 0.840044773409,
+        "path_entropy_bits": 1.840044773409,
+        "average_effect_entropy_bits": 0.900719679862,
+        "determinism": 0.159955226591,
+        "specificity": 0.900719679862,
+        "degeneracy": 0.099280320138,
+        "effective_information_bits": 0.060674906453,
+        "causal_power": 0.060674906453
+      },
+      "deltaCP": -0.204827296752
+    },
+    {
+      "id": "01|23",
+      "blocks": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ]
+      ],
+      "macro_state_count": 2,
+      "macro_tpm": [
+        [
+          0.9,
+          0.1
+        ],
+        [
+          0.1,
+          0.9
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 0.468995593589,
+        "path_entropy_bits": 1.468995593589,
+        "average_effect_entropy_bits": 1.0,
+        "determinism": 0.531004406411,
+        "specificity": 1.0,
+        "degeneracy": 0.0,
+        "effective_information_bits": 0.531004406411,
+        "causal_power": 0.531004406411
+      },
+      "deltaCP": 0.265502203206
+    },
+    {
+      "id": "01|2|3",
+      "blocks": [
+        [
+          0,
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3
+        ]
+      ],
+      "macro_state_count": 3,
+      "macro_tpm": [
+        [
+          0.9,
+          0.05,
+          0.05
+        ],
+        [
+          0.1,
+          0.45,
+          0.45
+        ],
+        [
+          0.1,
+          0.45,
+          0.45
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 1.102328926923,
+        "path_entropy_bits": 2.687291427644,
+        "average_effect_entropy_bits": 1.581411576927,
+        "determinism": 0.304507881782,
+        "specificity": 0.997759616526,
+        "degeneracy": 0.002240383474,
+        "effective_information_bits": 0.479082650005,
+        "causal_power": 0.302267498308
+      },
+      "deltaCP": 0.036765295103
+    },
+    {
+      "id": "023|1",
+      "blocks": [
+        [
+          0,
+          2,
+          3
+        ],
+        [
+          1
+        ]
+      ],
+      "macro_state_count": 2,
+      "macro_tpm": [
+        [
+          0.816666666667,
+          0.183333333333
+        ],
+        [
+          0.55,
+          0.45
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 0.840044773409,
+        "path_entropy_bits": 1.840044773409,
+        "average_effect_entropy_bits": 0.900719679862,
+        "determinism": 0.159955226591,
+        "specificity": 0.900719679862,
+        "degeneracy": 0.099280320138,
+        "effective_information_bits": 0.060674906453,
+        "causal_power": 0.060674906453
+      },
+      "deltaCP": -0.204827296752
+    },
+    {
+      "id": "02|13",
+      "blocks": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          3
+        ]
+      ],
+      "macro_state_count": 2,
+      "macro_tpm": [
+        [
+          0.5,
+          0.5
+        ],
+        [
+          0.5,
+          0.5
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 1.0,
+        "path_entropy_bits": 2.0,
+        "average_effect_entropy_bits": 1.0,
+        "determinism": 0.0,
+        "specificity": 1.0,
+        "degeneracy": 0.0,
+        "effective_information_bits": 0.0,
+        "causal_power": 0.0
+      },
+      "deltaCP": -0.265502203205
+    },
+    {
+      "id": "02|1|3",
+      "blocks": [
+        [
+          0,
+          2
+        ],
+        [
+          1
+        ],
+        [
+          3
+        ]
+      ],
+      "macro_state_count": 3,
+      "macro_tpm": [
+        [
+          0.5,
+          0.25,
+          0.25
+        ],
+        [
+          0.5,
+          0.45,
+          0.05
+        ],
+        [
+          0.5,
+          0.05,
+          0.45
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 1.322998531196,
+        "path_entropy_bits": 2.907961031918,
+        "average_effect_entropy_bits": 1.5,
+        "determinism": 0.165280862737,
+        "specificity": 0.946394630357,
+        "degeneracy": 0.053605369643,
+        "effective_information_bits": 0.177001468804,
+        "causal_power": 0.111675493094
+      },
+      "deltaCP": -0.153826710111
+    },
+    {
+      "id": "03|12",
+      "blocks": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "macro_state_count": 2,
+      "macro_tpm": [
+        [
+          0.5,
+          0.5
+        ],
+        [
+          0.5,
+          0.5
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 1.0,
+        "path_entropy_bits": 2.0,
+        "average_effect_entropy_bits": 1.0,
+        "determinism": 0.0,
+        "specificity": 1.0,
+        "degeneracy": 0.0,
+        "effective_information_bits": 0.0,
+        "causal_power": 0.0
+      },
+      "deltaCP": -0.265502203205
+    },
+    {
+      "id": "0|123",
+      "blocks": [
+        [
+          0
+        ],
+        [
+          1,
+          2,
+          3
+        ]
+      ],
+      "macro_state_count": 2,
+      "macro_tpm": [
+        [
+          0.45,
+          0.55
+        ],
+        [
+          0.183333333333,
+          0.816666666667
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 0.840044773409,
+        "path_entropy_bits": 1.840044773409,
+        "average_effect_entropy_bits": 0.900719679862,
+        "determinism": 0.159955226591,
+        "specificity": 0.900719679862,
+        "degeneracy": 0.099280320138,
+        "effective_information_bits": 0.060674906453,
+        "causal_power": 0.060674906453
+      },
+      "deltaCP": -0.204827296752
+    },
+    {
+      "id": "0|12|3",
+      "blocks": [
+        [
+          0
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          3
+        ]
+      ],
+      "macro_state_count": 3,
+      "macro_tpm": [
+        [
+          0.45,
+          0.5,
+          0.05
+        ],
+        [
+          0.25,
+          0.5,
+          0.25
+        ],
+        [
+          0.05,
+          0.5,
+          0.45
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 1.322998531196,
+        "path_entropy_bits": 2.907961031918,
+        "average_effect_entropy_bits": 1.5,
+        "determinism": 0.165280862737,
+        "specificity": 0.946394630357,
+        "degeneracy": 0.053605369643,
+        "effective_information_bits": 0.177001468804,
+        "causal_power": 0.111675493094
+      },
+      "deltaCP": -0.153826710111
+    },
+    {
+      "id": "03|1|2",
+      "blocks": [
+        [
+          0,
+          3
+        ],
+        [
+          1
+        ],
+        [
+          2
+        ]
+      ],
+      "macro_state_count": 3,
+      "macro_tpm": [
+        [
+          0.5,
+          0.25,
+          0.25
+        ],
+        [
+          0.5,
+          0.45,
+          0.05
+        ],
+        [
+          0.5,
+          0.05,
+          0.45
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 1.322998531196,
+        "path_entropy_bits": 2.907961031918,
+        "average_effect_entropy_bits": 1.5,
+        "determinism": 0.165280862737,
+        "specificity": 0.946394630357,
+        "degeneracy": 0.053605369643,
+        "effective_information_bits": 0.177001468804,
+        "causal_power": 0.111675493094
+      },
+      "deltaCP": -0.153826710111
+    },
+    {
+      "id": "0|13|2",
+      "blocks": [
+        [
+          0
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2
+        ]
+      ],
+      "macro_state_count": 3,
+      "macro_tpm": [
+        [
+          0.45,
+          0.5,
+          0.05
+        ],
+        [
+          0.25,
+          0.5,
+          0.25
+        ],
+        [
+          0.05,
+          0.5,
+          0.45
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 1.322998531196,
+        "path_entropy_bits": 2.907961031918,
+        "average_effect_entropy_bits": 1.5,
+        "determinism": 0.165280862737,
+        "specificity": 0.946394630357,
+        "degeneracy": 0.053605369643,
+        "effective_information_bits": 0.177001468804,
+        "causal_power": 0.111675493094
+      },
+      "deltaCP": -0.153826710111
+    },
+    {
+      "id": "0|1|23",
+      "blocks": [
+        [
+          0
+        ],
+        [
+          1
+        ],
+        [
+          2,
+          3
+        ]
+      ],
+      "macro_state_count": 3,
+      "macro_tpm": [
+        [
+          0.45,
+          0.45,
+          0.1
+        ],
+        [
+          0.45,
+          0.45,
+          0.1
+        ],
+        [
+          0.05,
+          0.05,
+          0.9
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 1.102328926923,
+        "path_entropy_bits": 2.687291427644,
+        "average_effect_entropy_bits": 1.581411576927,
+        "determinism": 0.304507881782,
+        "specificity": 0.997759616526,
+        "degeneracy": 0.002240383474,
+        "effective_information_bits": 0.479082650005,
+        "causal_power": 0.302267498308
+      },
+      "deltaCP": 0.036765295103
+    },
+    {
+      "id": "0|1|2|3",
+      "blocks": [
+        [
+          0
+        ],
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3
+        ]
+      ],
+      "macro_state_count": 4,
+      "macro_tpm": [
+        [
+          0.45,
+          0.45,
+          0.05,
+          0.05
+        ],
+        [
+          0.45,
+          0.45,
+          0.05,
+          0.05
+        ],
+        [
+          0.05,
+          0.05,
+          0.45,
+          0.45
+        ],
+        [
+          0.05,
+          0.05,
+          0.45,
+          0.45
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 1.468995593589,
+        "path_entropy_bits": 3.468995593589,
+        "average_effect_entropy_bits": 2.0,
+        "determinism": 0.265502203205,
+        "specificity": 1.0,
+        "degeneracy": 0.0,
+        "effective_information_bits": 0.531004406411,
+        "causal_power": 0.265502203205
+      },
+      "deltaCP": 0.0
+    }
+  ],
+  "emergent_hierarchy": {
+    "selection_rule": "Partitions sorted by causal_power, then macro_state_count.",
+    "best_partition": {
+      "partition_id": "01|23",
+      "blocks": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ]
+      ],
+      "causal_power": 0.531004406411,
+      "deltaCP": 0.265502203206
+    },
+    "levels": [
+      {
+        "partition_id": "01|23",
+        "macro_state_count": 2,
+        "causal_power": 0.531004406411,
+        "deltaCP": 0.265502203206
+      },
+      {
+        "partition_id": "01|2|3",
+        "macro_state_count": 3,
+        "causal_power": 0.302267498308,
+        "deltaCP": 0.036765295103
+      },
+      {
+        "partition_id": "0|1|23",
+        "macro_state_count": 3,
+        "causal_power": 0.302267498308,
+        "deltaCP": 0.036765295103
+      },
+      {
+        "partition_id": "0|1|2|3",
+        "macro_state_count": 4,
+        "causal_power": 0.265502203205,
+        "deltaCP": 0.0
+      },
+      {
+        "partition_id": "02|1|3",
+        "macro_state_count": 3,
+        "causal_power": 0.111675493094,
+        "deltaCP": -0.153826710111
+      },
+      {
+        "partition_id": "0|12|3",
+        "macro_state_count": 3,
+        "causal_power": 0.111675493094,
+        "deltaCP": -0.153826710111
+      },
+      {
+        "partition_id": "03|1|2",
+        "macro_state_count": 3,
+        "causal_power": 0.111675493094,
+        "deltaCP": -0.153826710111
+      },
+      {
+        "partition_id": "0|13|2",
+        "macro_state_count": 3,
+        "causal_power": 0.111675493094,
+        "deltaCP": -0.153826710111
+      },
+      {
+        "partition_id": "012|3",
+        "macro_state_count": 2,
+        "causal_power": 0.060674906453,
+        "deltaCP": -0.204827296752
+      },
+      {
+        "partition_id": "013|2",
+        "macro_state_count": 2,
+        "causal_power": 0.060674906453,
+        "deltaCP": -0.204827296752
+      },
+      {
+        "partition_id": "023|1",
+        "macro_state_count": 2,
+        "causal_power": 0.060674906453,
+        "deltaCP": -0.204827296752
+      },
+      {
+        "partition_id": "0|123",
+        "macro_state_count": 2,
+        "causal_power": 0.060674906453,
+        "deltaCP": -0.204827296752
+      },
+      {
+        "partition_id": "02|13",
+        "macro_state_count": 2,
+        "causal_power": 0.0,
+        "deltaCP": -0.265502203205
+      },
+      {
+        "partition_id": "03|12",
+        "macro_state_count": 2,
+        "causal_power": 0.0,
+        "deltaCP": -0.265502203205
+      },
+      {
+        "partition_id": "0123",
+        "macro_state_count": 1,
+        "causal_power": 0.0,
+        "deltaCP": -0.265502203205
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "generators/generate_starter_systems.py",
+    "seed": null,
+    "precision": 12,
+    "parameters": {}
+  },
+  "notes": [
+    "The partition [[0, 1], [2, 3]] removes within-block indeterminism.",
+    "This is a compact fixture for testing positive deltaCP."
+  ],
+  "references": [
+    {
+      "label": "Hoel, Albantakis, Tononi (2013), Quantifying causal emergence",
+      "url": "https://doi.org/10.3390/e15051894"
+    },
+    {
+      "label": "Hoel (2017), When the map is better than the territory",
+      "url": "https://doi.org/10.3390/e19050188"
+    }
+  ]
+}

@@ -1,0 +1,288 @@
+{
+  "schema_version": "0.1.0",
+  "id": "degenerate_3",
+  "name": "Three-state fully degenerate system",
+  "description": "Every intervention maps to the same next state.",
+  "conceptual_role": "fully degenerate / zero causal power baseline",
+  "state_count": 3,
+  "state_labels": [
+    "s0",
+    "s1",
+    "s2"
+  ],
+  "microscale": {
+    "partition_id": "0|1|2",
+    "tpm": [
+      [
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0
+      ],
+      [
+        1.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "metrics": {
+      "row_entropy_bits": 0.0,
+      "path_entropy_bits": 1.584962500721,
+      "average_effect_entropy_bits": 0.0,
+      "determinism": 1.0,
+      "specificity": 0.0,
+      "degeneracy": 1.0,
+      "effective_information_bits": 0.0,
+      "causal_power": 0.0
+    }
+  },
+  "partitions": [
+    {
+      "id": "012",
+      "blocks": [
+        [
+          0,
+          1,
+          2
+        ]
+      ],
+      "macro_state_count": 1,
+      "macro_tpm": [
+        [
+          1.0
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 0.0,
+        "path_entropy_bits": 0.0,
+        "average_effect_entropy_bits": 0.0,
+        "determinism": 0.0,
+        "specificity": 0.0,
+        "degeneracy": 0.0,
+        "effective_information_bits": 0.0,
+        "causal_power": 0.0
+      },
+      "deltaCP": 0.0
+    },
+    {
+      "id": "01|2",
+      "blocks": [
+        [
+          0,
+          1
+        ],
+        [
+          2
+        ]
+      ],
+      "macro_state_count": 2,
+      "macro_tpm": [
+        [
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 0.0,
+        "path_entropy_bits": 1.0,
+        "average_effect_entropy_bits": 0.0,
+        "determinism": 1.0,
+        "specificity": 0.0,
+        "degeneracy": 1.0,
+        "effective_information_bits": 0.0,
+        "causal_power": 0.0
+      },
+      "deltaCP": 0.0
+    },
+    {
+      "id": "02|1",
+      "blocks": [
+        [
+          0,
+          2
+        ],
+        [
+          1
+        ]
+      ],
+      "macro_state_count": 2,
+      "macro_tpm": [
+        [
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 0.0,
+        "path_entropy_bits": 1.0,
+        "average_effect_entropy_bits": 0.0,
+        "determinism": 1.0,
+        "specificity": 0.0,
+        "degeneracy": 1.0,
+        "effective_information_bits": 0.0,
+        "causal_power": 0.0
+      },
+      "deltaCP": 0.0
+    },
+    {
+      "id": "0|12",
+      "blocks": [
+        [
+          0
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "macro_state_count": 2,
+      "macro_tpm": [
+        [
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 0.0,
+        "path_entropy_bits": 1.0,
+        "average_effect_entropy_bits": 0.0,
+        "determinism": 1.0,
+        "specificity": 0.0,
+        "degeneracy": 1.0,
+        "effective_information_bits": 0.0,
+        "causal_power": 0.0
+      },
+      "deltaCP": 0.0
+    },
+    {
+      "id": "0|1|2",
+      "blocks": [
+        [
+          0
+        ],
+        [
+          1
+        ],
+        [
+          2
+        ]
+      ],
+      "macro_state_count": 3,
+      "macro_tpm": [
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "metrics": {
+        "row_entropy_bits": 0.0,
+        "path_entropy_bits": 1.584962500721,
+        "average_effect_entropy_bits": 0.0,
+        "determinism": 1.0,
+        "specificity": 0.0,
+        "degeneracy": 1.0,
+        "effective_information_bits": 0.0,
+        "causal_power": 0.0
+      },
+      "deltaCP": 0.0
+    }
+  ],
+  "emergent_hierarchy": {
+    "selection_rule": "Partitions sorted by causal_power, then macro_state_count.",
+    "best_partition": {
+      "partition_id": "0|1|2",
+      "blocks": [
+        [
+          0
+        ],
+        [
+          1
+        ],
+        [
+          2
+        ]
+      ],
+      "causal_power": 0.0,
+      "deltaCP": 0.0
+    },
+    "levels": [
+      {
+        "partition_id": "0|1|2",
+        "macro_state_count": 3,
+        "causal_power": 0.0,
+        "deltaCP": 0.0
+      },
+      {
+        "partition_id": "01|2",
+        "macro_state_count": 2,
+        "causal_power": 0.0,
+        "deltaCP": 0.0
+      },
+      {
+        "partition_id": "02|1",
+        "macro_state_count": 2,
+        "causal_power": 0.0,
+        "deltaCP": 0.0
+      },
+      {
+        "partition_id": "0|12",
+        "macro_state_count": 2,
+        "causal_power": 0.0,
+        "deltaCP": 0.0
+      },
+      {
+        "partition_id": "012",
+        "macro_state_count": 1,
+        "causal_power": 0.0,
+        "deltaCP": 0.0
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "generators/generate_starter_systems.py",
+    "seed": null,
+    "precision": 12,
+    "parameters": {}
+  },
+  "notes": [
+    "Rows are deterministic but effects are maximally overlapping.",
+    "The average effect distribution has zero entropy, so causal_power is zero."
+  ],
+  "references": [
+    {
+      "label": "Hoel, Albantakis, Tononi (2013), Quantifying causal emergence",
+      "url": "https://doi.org/10.3390/e15051894"
+    },
+    {
+      "label": "Hoel (2017), When the map is better than the territory",
+      "url": "https://doi.org/10.3390/e19050188"
+    }
+  ]
+}
