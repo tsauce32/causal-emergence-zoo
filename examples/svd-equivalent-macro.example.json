@@ -1,0 +1,33 @@
+{
+  "benchmark_id": "two_block_noisy_4",
+  "implementation": {
+    "name": "example-svd-coarse-graining-tool",
+    "version": "0.0.1",
+    "url": "https://example.org/svd"
+  },
+  "algorithm_family": "svd_coarse_graining",
+  "input_view": {
+    "type": "tpm",
+    "intervention_convention": "uniform_microstates"
+  },
+  "comparison_tier": "equivalent_macro",
+  "macro_maps": [
+    {
+      "id": "spectral_partition_projection",
+      "map_type": "partition",
+      "blocks": [[2, 3], [0, 1]],
+      "macro_state_count": 2,
+      "description": "SVD-style method reports a macro grouping equivalent to the zoo best partition up to relabeling."
+    }
+  ],
+  "scores": [
+    {
+      "namespace": "svd",
+      "subject": "spectral_partition_projection",
+      "unit": "implementation_defined",
+      "values": {
+        "spectral_gap_score": 1.0
+      }
+    }
+  ]
+}

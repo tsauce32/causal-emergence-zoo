@@ -1,16 +1,11 @@
-import json
-from pathlib import Path
-
+from causal_emergence_zoo.io import available_systems, load_system
 from causal_emergence_zoo.validation import validate_system
 from generators.generate_starter_systems import build_systems
 
-ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / "data"
-
 
 def test_all_fixtures_validate():
-    for path in DATA.glob("*.json"):
-        system = json.loads(path.read_text(encoding="utf-8"))
+    for system_id in available_systems():
+        system = load_system(system_id)
         assert validate_system(system) == []
 
 
@@ -19,12 +14,12 @@ def test_generated_systems_match_stored_fixtures():
 
     assert generated
     for system_id, system in generated.items():
-        stored = json.loads((DATA / f"{system_id}.json").read_text(encoding="utf-8"))
+        stored = load_system(system_id)
         assert stored == system
 
 
 def test_two_block_fixture_records_positive_delta_cp():
-    system = json.loads((DATA / "two_block_noisy_4.json").read_text(encoding="utf-8"))
+    system = load_system("two_block_noisy_4")
 
     best = system["emergent_hierarchy"]["best_partition"]
 
@@ -33,7 +28,7 @@ def test_two_block_fixture_records_positive_delta_cp():
 
 
 def test_mesoscale_cycle_fixture_records_natural_three_block_peak():
-    system = json.loads((DATA / "mesoscale_cycle_6.json").read_text(encoding="utf-8"))
+    system = load_system("mesoscale_cycle_6")
 
     best = system["emergent_hierarchy"]["best_partition"]
 
@@ -44,7 +39,7 @@ def test_mesoscale_cycle_fixture_records_natural_three_block_peak():
 
 
 def test_hierarchical_fixture_records_multiple_clean_macro_levels():
-    system = json.loads((DATA / "hierarchical_two_cycle_8.json").read_text(encoding="utf-8"))
+    system = load_system("hierarchical_two_cycle_8")
     levels = {
         item["partition_id"]: item
         for item in system["emergent_hierarchy"]["levels"]
@@ -63,8 +58,8 @@ def test_hierarchical_fixture_records_multiple_clean_macro_levels():
 
 
 def test_preferential_attachment_alpha_fixtures_share_graph_but_differ_in_dynamics():
-    alpha0 = json.loads((DATA / "preferential_attachment_alpha0_8.json").read_text(encoding="utf-8"))
-    alpha2 = json.loads((DATA / "preferential_attachment_alpha2_8.json").read_text(encoding="utf-8"))
+    alpha0 = load_system("preferential_attachment_alpha0_8")
+    alpha2 = load_system("preferential_attachment_alpha2_8")
 
     assert alpha0["state_count"] == 8
     assert alpha2["state_count"] == 8
@@ -75,3 +70,11 @@ def test_preferential_attachment_alpha_fixtures_share_graph_but_differ_in_dynami
     assert alpha2["provenance"]["parameters"]["hub_bias_alpha"] == 2.0
     assert alpha0["microscale"]["tpm"] != alpha2["microscale"]["tpm"]
     assert alpha0["microscale"]["metrics"]["causal_power"] != alpha2["microscale"]["metrics"]["causal_power"]
+
+
+def test_package_data_loader_finds_packaged_fixtures():
+    systems = available_systems()
+
+    assert len(systems) == 8
+    assert "two_block_noisy_4" in systems
+    assert load_system("two_block_noisy_4")["state_count"] == 4

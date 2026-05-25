@@ -19,3 +19,18 @@ jobs:
         run: python -m pip install -e ".[dev]"
       - name: Run tests
         run: python -m pytest
+      - name: Build wheel
+        run: python -m build --wheel
+      - name: Smoke test wheel data loading
+        run: |
+          python -m venv wheel-smoke
+          wheel-smoke/bin/python -m pip install dist/*.whl
+          wheel-smoke/bin/python - <<'PY'
+          from causal_emergence_zoo import available_systems, load_system
+
+          systems = available_systems()
+          assert "two_block_noisy_4" in systems, systems
+          system = load_system("two_block_noisy_4")
+          assert system["state_count"] == 4
+          assert system["emergent_hierarchy"]["best_partition"]["partition_id"] == "01|23"
+          PY

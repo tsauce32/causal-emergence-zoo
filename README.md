@@ -64,11 +64,12 @@ These are benchmark conventions, not a claim that every causal-emergence paper o
 ## Repository Layout
 
 ```text
-data/          Serialized benchmark systems and expected outputs
+src/causal_emergence_zoo/data/
+               Packaged benchmark systems and expected outputs
 generators/    Reproducible scripts that recreate benchmark systems
 schemas/       JSON schemas for benchmark metadata and result files
 notebooks/     Explanatory demos and experiments
-src/           Lightweight loading, validation, partition, metric, and plotting utilities
+src/           Lightweight loading, validation, partition, metric, plotting, and CLI utilities
 tests/         Regression tests for schemas, metrics, and generated fixtures
 docs/          Concept notes and benchmark design docs
 ```
@@ -96,8 +97,22 @@ Use the CLI:
 ```bash
 cez list
 cez summarize two_block_noisy_4 --notes
+cez greedy mesoscale_cycle_6 --paths 20 --branching-factor 2
 cez validate two_block_noisy_4
 cez compare two_block_noisy_4 examples/implementation-result.example.json
+cez compare two_block_noisy_4 examples/svd-equivalent-macro.example.json
+cez compare mesoscale_cycle_6 examples/rank-agreement.example.json
+```
+
+Run a branching greedy search from Python:
+
+```python
+from causal_emergence_zoo import branching_greedy_search, load_system
+
+system = load_system("mesoscale_cycle_6")
+result = branching_greedy_search(system["microscale"]["tpm"], n_paths=20, branching_factor=2)
+print(result["best_partition"]["blocks"])
+print(result["best_partition"]["deltaCP"])
 ```
 
 ## Passing Information Into The Zoo
@@ -110,6 +125,8 @@ There are two main information paths:
 See [docs/input-format.md](docs/input-format.md) for the full contract.
 
 The implementation-result format now includes an optional harmonization layer for multiple algorithm families, macro-map types, score namespaces, and comparison tiers. This lets CE 2.0, Engineering Emergence, network EI, SVD, dynamical-independence, or learned-latent methods report comparable outputs without pretending to use the same metric.
+
+Benchmark fixtures are package data. A normal wheel install can load them with `load_system()`; an editable checkout is not required.
 
 ## Design Goals
 

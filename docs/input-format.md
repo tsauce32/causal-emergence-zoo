@@ -24,7 +24,7 @@ The minimum information is:
 - `expected_behavior`: qualitative behavior a compatible implementation should find
 - `provenance`: generator, seed, paper, or empirical source
 
-The generated benchmark fixture in `data/` then adds:
+The generated benchmark fixture in `src/causal_emergence_zoo/data/` then adds:
 
 - computed metrics
 - partition results
@@ -67,7 +67,11 @@ Examples:
 ```text
 examples/implementation-result.example.json
 examples/network-ei-result.example.json
+examples/engineering-emergence-qualitative.example.json
 examples/engineering-emergence-result.example.json
+examples/ce2-multiscale-exploratory.example.json
+examples/svd-equivalent-macro.example.json
+examples/rank-agreement.example.json
 ```
 
 The old minimal result shape remains valid. If `comparison_tier` is omitted, `cez compare` treats the result as `exact`.
@@ -90,7 +94,7 @@ Validate stored fixtures:
 
 ```bash
 cez validate two_block_noisy_4
-cez validate data/two_block_noisy_4.json
+cez validate src/causal_emergence_zoo/data/two_block_noisy_4.json
 ```
 
 Compare an implementation result:
@@ -98,5 +102,9 @@ Compare an implementation result:
 ```bash
 cez compare two_block_noisy_4 examples/implementation-result.example.json
 cez compare preferential_attachment_alpha0_8 examples/network-ei-result.example.json
+cez compare hierarchical_two_cycle_8 examples/engineering-emergence-qualitative.example.json
 cez compare hierarchical_two_cycle_8 examples/engineering-emergence-result.example.json
+cez compare mesoscale_cycle_6 examples/ce2-multiscale-exploratory.example.json
+cez compare two_block_noisy_4 examples/svd-equivalent-macro.example.json
+cez compare mesoscale_cycle_6 examples/rank-agreement.example.json
 ```

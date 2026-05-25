@@ -1,6 +1,9 @@
 import json
+from pathlib import Path
 
 from causal_emergence_zoo.cli import main
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_cli_list_prints_known_system(capsys):
@@ -154,3 +157,72 @@ def test_cli_compare_non_exact_tiers(tmp_path, capsys):
 
     assert "qualitative" in output
     assert "exploratory" in output
+
+
+def test_cli_greedy_prints_best_sampled_partition(capsys):
+    assert main(["greedy", "two_block_noisy_4", "--paths", "4", "--branching-factor", "2"]) == 0
+
+    output = capsys.readouterr().out
+
+    assert "greedy search: two_block_noisy_4" in output
+    assert "best sampled partition: 01|23" in output
+    assert "paths:" in output
+
+
+def test_cli_exact_requires_numeric_comparison(tmp_path, capsys):
+    result = {
+        "benchmark_id": "two_block_noisy_4",
+        "algorithm_family": "ce1_partition_ei",
+        "comparison_tier": "exact",
+        "macro_maps": [
+            {
+                "id": "best_map",
+                "map_type": "partition",
+                "blocks": [[0, 1], [2, 3]],
+                "macro_state_count": 2,
+            }
+        ],
+    }
+    path = tmp_path / "structural_only.json"
+    path.write_text(json.dumps(result), encoding="utf-8")
+
+    assert main(["compare", "two_block_noisy_4", str(path)]) == 1
+
+    output = capsys.readouterr().out
+
+    assert "requires at least one numeric" in output
+
+
+def test_cli_compare_schema_validation_catches_invalid_family(tmp_path, capsys):
+    result = {
+        "benchmark_id": "two_block_noisy_4",
+        "algorithm_family": "not_a_family",
+        "comparison_tier": "exploratory",
+    }
+    path = tmp_path / "invalid_schema.json"
+    path.write_text(json.dumps(result), encoding="utf-8")
+
+    assert main(["compare", "two_block_noisy_4", str(path)]) == 1
+
+    output = capsys.readouterr().out
+
+    assert "Schema error at algorithm_family" in output
+
+
+def test_cli_compare_packaged_examples(capsys):
+    examples = [
+        ("two_block_noisy_4", "implementation-result.example.json"),
+        ("preferential_attachment_alpha0_8", "network-ei-result.example.json"),
+        ("hierarchical_two_cycle_8", "engineering-emergence-qualitative.example.json"),
+        ("hierarchical_two_cycle_8", "engineering-emergence-result.example.json"),
+        ("mesoscale_cycle_6", "ce2-multiscale-exploratory.example.json"),
+        ("two_block_noisy_4", "svd-equivalent-macro.example.json"),
+        ("mesoscale_cycle_6", "rank-agreement.example.json"),
+    ]
+
+    for system_id, filename in examples:
+        assert main(["compare", system_id, str(ROOT / "examples" / filename)]) == 0
+
+    output = capsys.readouterr().out
+
+    assert output.count("PASS") == len(examples)

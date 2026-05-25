@@ -1,0 +1,33 @@
+{
+  "benchmark_id": "mesoscale_cycle_6",
+  "implementation": {
+    "name": "example-ce2-multiscale-tool",
+    "version": "0.0.1",
+    "url": "https://example.org/ce2"
+  },
+  "algorithm_family": "ce2_multiscale",
+  "input_view": {
+    "type": "tpm",
+    "intervention_convention": "uniform_microstates"
+  },
+  "comparison_tier": "exploratory",
+  "macro_maps": [
+    {
+      "id": "mesoscale_candidate",
+      "map_type": "partition",
+      "blocks": [[0, 1], [2, 3], [4, 5]],
+      "macro_state_count": 3
+    }
+  ],
+  "scores": [
+    {
+      "namespace": "ce2",
+      "subject": "mesoscale_candidate",
+      "unit": "implementation_defined",
+      "normalization": "Not claimed to match zoo.ce1 exactly.",
+      "values": {
+        "multiscale_contribution": 0.386852807235
+      }
+    }
+  ]
+}

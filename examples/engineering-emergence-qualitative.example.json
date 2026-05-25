@@ -1,0 +1,25 @@
+{
+  "benchmark_id": "hierarchical_two_cycle_8",
+  "implementation": {
+    "name": "example-engineering-emergence-tool",
+    "version": "0.0.1",
+    "url": "https://example.org/engineering"
+  },
+  "algorithm_family": "engineering_emergence",
+  "input_view": {
+    "type": "tpm",
+    "intervention_convention": "uniform_microstates"
+  },
+  "comparison_tier": "qualitative",
+  "classification": "multiple-path hierarchy",
+  "scores": [
+    {
+      "namespace": "engineering",
+      "subject": "hierarchy",
+      "unit": "classification",
+      "values": {
+        "profile": "multiple-path hierarchy"
+      }
+    }
+  ]
+}

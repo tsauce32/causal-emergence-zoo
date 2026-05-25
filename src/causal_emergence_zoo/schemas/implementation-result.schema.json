@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/causal-emergence-zoo/implementation-result.schema.json",
+  "title": "causal-emergence-zoo implementation comparison result",
+  "description": "Minimal or harmonized output format that another causal-emergence implementation can pass to `cez compare`.",
+  "type": "object",
+  "required": ["benchmark_id"],
+  "properties": {
+    "benchmark_id": {
+      "type": "string",
+      "description": "The benchmark system id, such as two_block_noisy_4."
+    },
+    "implementation": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "url": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "algorithm_family": {
+      "$ref": "#/$defs/algorithm_family",
+      "description": "Comparison contract family, not merely the software package name."
+    },
+    "input_view": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "$ref": "#/$defs/input_view_type" },
+        "intervention_convention": { "type": "string" },
+        "graph_to_tpm_convention": { "type": "string" },
+        "mapping_note": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "comparison_tier": {
+      "$ref": "#/$defs/comparison_tier",
+      "description": "How strict the zoo comparison should be. Defaults to exact when omitted."
+    },
+    "macro_maps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/macro_map" }
+    },
+    "scores": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/score_record" }
+    },
+    "artifacts": {
+      "type": "object",
+      "description": "Optional outputs such as macro TPMs, hierarchy profiles, paths, plots, or external artifact pointers.",
+      "additionalProperties": true
+    },
+    "qualitative_role": {
+      "type": "string",
+      "description": "Fixture-level qualitative classification for qualitative comparison tier."
+    },
+    "classification": {
+      "type": "string",
+      "description": "Alias for qualitative_role."
+    },
+    "ranked_partitions": {
+      "type": "array",
+      "description": "Ranked partition ids or objects, used by rank_agreement comparison.",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          {
+            "type": "object",
+            "properties": {
+              "partition_id": { "type": "string" },
+              "score": { "type": "number" }
+            },
+            "additionalProperties": true
+          }
+        ]
+      }
+    },
+    "microscale": {
+      "type": "object",
+      "properties": {
+        "metrics": { "$ref": "#/$defs/metrics" }
+      },
+      "additionalProperties": true
+    },
+    "best_partition": {
+      "type": "object",
+      "properties": {
+        "partition_id": { "type": "string" },
+        "blocks": { "$ref": "#/$defs/blocks" },
+        "deltaCP": { "type": "number" },
+        "causal_power": { "type": "number" }
+      },
+      "additionalProperties": true
+    },
+    "partitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "blocks": { "$ref": "#/$defs/blocks" },
+          "metrics": { "$ref": "#/$defs/metrics" },
+          "deltaCP": { "type": "number" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "algorithm_family": {
+      "type": "string",
+      "enum": [
+        "ce1_partition_ei",
+        "network_ei",
+        "ce2_multiscale",
+        "engineering_emergence",
+        "svd_coarse_graining",
+        "dynamical_independence",
+        "latent_dynamics",
+        "other"
+      ]
+    },
+    "input_view_type": {
+      "type": "string",
+      "enum": [
+        "tpm",
+        "graph",
+        "boolean_network",
+        "trajectory",
+        "linear_system",
+        "other"
+      ]
+    },
+    "comparison_tier": {
+      "type": "string",
+      "enum": [
+        "exact",
+        "equivalent_macro",
+        "rank_agreement",
+        "qualitative",
+        "exploratory"
+      ]
+    },
+    "map_type": {
+      "type": "string",
+      "enum": [
+        "partition",
+        "variable_grouping",
+        "projection_matrix",
+        "stochastic_map",
+        "encoder",
+        "hierarchy_path",
+        "none"
+      ]
+    },
+    "score_namespace": {
+      "type": "string",
+      "enum": [
+        "zoo.ce1",
+        "published.ce1",
+        "ce2",
+        "engineering",
+        "svd",
+        "dynamical_independence",
+        "prediction"
+      ]
+    },
+    "blocks": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "row_entropy_bits": { "type": "number" },
+        "path_entropy_bits": { "type": "number" },
+        "average_effect_entropy_bits": { "type": "number" },
+        "determinism": { "type": "number" },
+        "specificity": { "type": "number" },
+        "degeneracy": { "type": "number" },
+        "effective_information_bits": { "type": "number" },
+        "causal_power": { "type": "number" }
+      },
+      "additionalProperties": true
+    },
+    "macro_map": {
+      "type": "object",
+      "required": ["id", "map_type"],
+      "properties": {
+        "id": { "type": "string" },
+        "map_type": { "$ref": "#/$defs/map_type" },
+        "blocks": { "$ref": "#/$defs/blocks" },
+        "macro_state_count": { "type": "integer", "minimum": 0 },
+        "variable_groups": { "$ref": "#/$defs/blocks" },
+        "projection_matrix": { "$ref": "#/$defs/matrix" },
+        "stochastic_matrix": { "$ref": "#/$defs/matrix" },
+        "encoder": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "path": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/macro_map" }
+        },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "score_record": {
+      "type": "object",
+      "required": ["namespace", "values"],
+      "properties": {
+        "namespace": { "$ref": "#/$defs/score_namespace" },
+        "subject": {
+          "type": ["string", "null"],
+          "description": "Macro map id, microscale, hierarchy, or another documented subject."
+        },
+        "unit": { "type": "string" },
+        "normalization": { "type": "string" },
+        "values": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "number" },
+              { "type": "string" },
+              { "type": "boolean" },
+              { "type": "array" },
+              { "type": "object" },
+              { "type": "null" }
+            ]
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "matrix": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": { "type": "number" }
+      }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "benchmark_id": "mesoscale_cycle_6",
+  "implementation": {
+    "name": "example-ranking-tool",
+    "version": "0.0.1",
+    "url": "https://example.org/ranking"
+  },
+  "algorithm_family": "ce2_multiscale",
+  "input_view": {
+    "type": "tpm",
+    "intervention_convention": "uniform_microstates"
+  },
+  "comparison_tier": "rank_agreement",
+  "ranked_partitions": [
+    {
+      "partition_id": "01|23|45",
+      "score": 1.0
+    },
+    {
+      "partition_id": "01|2345",
+      "score": 0.7
+    }
+  ],
+  "scores": [
+    {
+      "namespace": "ce2",
+      "subject": "ranked_partitions",
+      "unit": "rank",
+      "values": {
+        "top_partition": "01|23|45"
+      }
+    }
+  ]
+}

@@ -5,10 +5,15 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import dataclass
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
+from jsonschema import Draft202012Validator
+
 from causal_emergence_zoo.io import available_systems, load_system
+from causal_emergence_zoo.search import branching_greedy_search
 from causal_emergence_zoo.validation import validate_system
 
 COMPARISON_TIERS = {
@@ -18,6 +23,20 @@ COMPARISON_TIERS = {
     "qualitative",
     "exploratory",
 }
+
+
+@dataclass
+class ComparisonCounts:
+    numeric: int = 0
+    structural: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.numeric + self.structural
+
+    def add(self, other: "ComparisonCounts") -> None:
+        self.numeric += other.numeric
+        self.structural += other.structural
 
 
 def _blocks_label(blocks: list[list[int]]) -> str:
@@ -37,6 +56,20 @@ def _load_target(target: str) -> tuple[str, dict[str, Any]]:
 
 def _almost_equal(left: float, right: float, tolerance: float) -> bool:
     return abs(left - right) <= tolerance
+
+
+def _implementation_result_schema() -> dict[str, Any]:
+    schema = files("causal_emergence_zoo").joinpath("schemas/implementation-result.schema.json")
+    return json.loads(schema.read_text(encoding="utf-8"))
+
+
+def _validate_implementation_result(result: dict[str, Any]) -> list[str]:
+    validator = Draft202012Validator(_implementation_result_schema())
+    errors = []
+    for error in sorted(validator.iter_errors(result), key=lambda item: list(item.path)):
+        path = ".".join(str(part) for part in error.path) or "<root>"
+        errors.append(f"Schema error at {path}: {error.message}")
+    return errors
 
 
 def _canonical_blocks(blocks: list[list[int]]) -> tuple[tuple[int, ...], ...]:
@@ -64,10 +97,10 @@ def _compare_number(
     actual: float,
     expected: float,
     tolerance: float,
-) -> int:
+) -> ComparisonCounts:
     if not _almost_equal(actual, expected, tolerance):
         failures.append(f"{label}: got {actual}, expected {expected}.")
-    return 1
+    return ComparisonCounts(numeric=1)
 
 
 def _compare_legacy_exact(
@@ -75,55 +108,55 @@ def _compare_legacy_exact(
     result: dict[str, Any],
     failures: list[str],
     tolerance: float,
-) -> int:
-    checked = 0
+) -> ComparisonCounts:
+    counts = ComparisonCounts()
 
     result_micro_metrics = result.get("microscale", {}).get("metrics", {})
     expected_micro_metrics = benchmark["microscale"]["metrics"]
     for key, expected in expected_micro_metrics.items():
         if key in result_micro_metrics:
-            checked += _compare_number(
+            counts.add(_compare_number(
                 failures,
                 f"microscale.metrics.{key}",
                 result_micro_metrics[key],
                 expected,
                 tolerance,
-            )
+            ))
 
     result_best = result.get("best_partition", {})
     expected_best = benchmark["emergent_hierarchy"]["best_partition"]
     if "partition_id" in result_best:
-        checked += 1
+        counts.structural += 1
         if result_best["partition_id"] != expected_best["partition_id"]:
             failures.append(
                 "best_partition.partition_id: "
                 f"got {result_best['partition_id']!r}, expected {expected_best['partition_id']!r}."
             )
     if "blocks" in result_best:
-        checked += 1
+        counts.structural += 1
         if _canonical_blocks(result_best["blocks"]) != _canonical_blocks(expected_best["blocks"]):
             failures.append(
                 "best_partition.blocks: "
                 f"got {result_best['blocks']!r}, expected {expected_best['blocks']!r}."
             )
     if "deltaCP" in result_best:
-        checked += _compare_number(
+        counts.add(_compare_number(
             failures,
             "best_partition.deltaCP",
             result_best["deltaCP"],
             expected_best["deltaCP"],
             tolerance,
-        )
+        ))
     if "causal_power" in result_best:
-        checked += _compare_number(
+        counts.add(_compare_number(
             failures,
             "best_partition.causal_power",
             result_best["causal_power"],
             expected_best["causal_power"],
             tolerance,
-        )
+        ))
 
-    return checked
+    return counts
 
 
 def _compare_harmonized_exact(
@@ -131,15 +164,15 @@ def _compare_harmonized_exact(
     result: dict[str, Any],
     failures: list[str],
     tolerance: float,
-) -> int:
-    checked = 0
+) -> ComparisonCounts:
+    counts = ComparisonCounts()
     lookup = _partition_lookup(benchmark)
     maps_by_id = _macro_maps_by_id(result)
 
     for macro_map in result.get("macro_maps", []):
         if macro_map.get("map_type") != "partition" or "blocks" not in macro_map:
             continue
-        checked += 1
+        counts.structural += 1
         if _canonical_blocks(macro_map["blocks"]) not in lookup:
             failures.append(f"macro_maps.{macro_map.get('id', '<unnamed>')} is not a valid partition.")
 
@@ -168,25 +201,29 @@ def _compare_harmonized_exact(
 
         for key, actual in values.items():
             if key == "deltaCP":
-                checked += _compare_number(
+                counts.add(_compare_number(
                     failures,
                     f"scores[{score_index}].values.deltaCP",
                     actual,
                     expected_delta_cp,
                     tolerance,
-                )
+                ))
             elif key in expected_values:
-                checked += _compare_number(
+                counts.add(_compare_number(
                     failures,
                     f"scores[{score_index}].values.{key}",
                     actual,
                     expected_values[key],
                     tolerance,
-                )
-    return checked
+                ))
+    return counts
 
 
-def _compare_equivalent_macro(benchmark: dict[str, Any], result: dict[str, Any], failures: list[str]) -> int:
+def _compare_equivalent_macro(
+    benchmark: dict[str, Any],
+    result: dict[str, Any],
+    failures: list[str],
+) -> ComparisonCounts:
     expected = _canonical_blocks(benchmark["emergent_hierarchy"]["best_partition"]["blocks"])
     candidate_blocks = []
     if result.get("best_partition", {}).get("blocks"):
@@ -199,36 +236,44 @@ def _compare_equivalent_macro(benchmark: dict[str, Any], result: dict[str, Any],
 
     for blocks in candidate_blocks:
         if _canonical_blocks(blocks) == expected:
-            return 1
+            return ComparisonCounts(structural=1)
 
     failures.append("No reported partition macro map matches the expected best partition up to relabeling.")
-    return 1
+    return ComparisonCounts(structural=1)
 
 
-def _compare_rank_agreement(benchmark: dict[str, Any], result: dict[str, Any], failures: list[str]) -> int:
+def _compare_rank_agreement(
+    benchmark: dict[str, Any],
+    result: dict[str, Any],
+    failures: list[str],
+) -> ComparisonCounts:
     expected_top = benchmark["emergent_hierarchy"]["levels"][0]["partition_id"]
     reported = result.get("ranked_partitions") or result.get("rankings", {}).get("partitions")
     if not reported:
         failures.append("rank_agreement requires ranked_partitions or rankings.partitions.")
-        return 1
+        return ComparisonCounts(structural=1)
     first = reported[0]
     reported_top = first.get("partition_id") if isinstance(first, dict) else first
     if reported_top != expected_top:
         failures.append(f"Top ranked partition is {reported_top!r}, expected {expected_top!r}.")
-    return 1
+    return ComparisonCounts(structural=1)
 
 
-def _compare_qualitative(benchmark: dict[str, Any], result: dict[str, Any], failures: list[str]) -> int:
+def _compare_qualitative(
+    benchmark: dict[str, Any],
+    result: dict[str, Any],
+    failures: list[str],
+) -> ComparisonCounts:
     expected_role = benchmark["conceptual_role"]
     reported_role = result.get("qualitative_role") or result.get("classification")
     if not reported_role:
         failures.append("qualitative comparison requires qualitative_role or classification.")
-        return 1
+        return ComparisonCounts(structural=1)
     expected_terms = {term.strip().lower() for term in expected_role.replace("/", ",").split(",")}
     reported = str(reported_role).lower()
     if not any(term and term in reported for term in expected_terms):
         failures.append(f"Qualitative role {reported_role!r} does not match fixture role {expected_role!r}.")
-    return 1
+    return ComparisonCounts(structural=1)
 
 
 def list_systems(_: argparse.Namespace) -> int:
@@ -278,8 +323,10 @@ def compare_result(args: argparse.Namespace) -> int:
     benchmark = load_system(args.system_id)
     result = _read_json(Path(args.result_json))
     failures: list[str] = []
-    checked = 0
+    counts = ComparisonCounts()
     tier = result.get("comparison_tier", "exact")
+
+    failures.extend(_validate_implementation_result(result))
 
     if result.get("benchmark_id") not in (None, benchmark["id"]):
         failures.append(
@@ -289,18 +336,20 @@ def compare_result(args: argparse.Namespace) -> int:
     if tier not in COMPARISON_TIERS:
         failures.append(f"comparison_tier is {tier!r}; expected one of {sorted(COMPARISON_TIERS)}.")
     elif tier == "exact":
-        checked += _compare_legacy_exact(benchmark, result, failures, args.tolerance)
-        checked += _compare_harmonized_exact(benchmark, result, failures, args.tolerance)
+        counts.add(_compare_legacy_exact(benchmark, result, failures, args.tolerance))
+        counts.add(_compare_harmonized_exact(benchmark, result, failures, args.tolerance))
+        if counts.numeric == 0:
+            failures.append("Exact comparison requires at least one numeric value comparison.")
     elif tier == "equivalent_macro":
-        checked += _compare_equivalent_macro(benchmark, result, failures)
+        counts.add(_compare_equivalent_macro(benchmark, result, failures))
     elif tier == "rank_agreement":
-        checked += _compare_rank_agreement(benchmark, result, failures)
+        counts.add(_compare_rank_agreement(benchmark, result, failures))
     elif tier == "qualitative":
-        checked += _compare_qualitative(benchmark, result, failures)
+        counts.add(_compare_qualitative(benchmark, result, failures))
     elif tier == "exploratory":
-        checked += 1
+        counts.structural += 1
 
-    if checked == 0:
+    if counts.total == 0:
         failures.append("No comparable fields found. See schemas/implementation-result.schema.json.")
 
     if failures:
@@ -309,7 +358,41 @@ def compare_result(args: argparse.Namespace) -> int:
             print(f"  - {failure}")
         return 1
 
-    print(f"PASS {args.result_json} against {benchmark['id']} ({tier}, {checked} checks)")
+    print(
+        f"PASS {args.result_json} against {benchmark['id']} "
+        f"({tier}, {counts.numeric} numeric, {counts.structural} structural checks)"
+    )
+    return 0
+
+
+def greedy_search(args: argparse.Namespace) -> int:
+    system = load_system(args.system_id)
+    result = branching_greedy_search(
+        system["microscale"]["tpm"],
+        n_paths=args.paths,
+        branching_factor=args.branching_factor,
+        score_key=args.score_key,
+        precision=args.precision,
+    )
+
+    if args.json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    best = result["best_partition"]
+    print(f"greedy search: {system['id']}")
+    print(f"score key: {result['score_key']}")
+    print(f"paths kept: {result['n_paths']}")
+    print(f"branching factor: {result['branching_factor']}")
+    print(f"sampled partitions: {result['sampled_partition_count']}")
+    print(f"microscale causal_power: {result['microscale']['metrics']['causal_power']}")
+    print(f"best sampled partition: {best['partition_id']} {_blocks_label(best['blocks'])}")
+    print(f"best sampled causal_power: {best['metrics']['causal_power']}")
+    print(f"best sampled deltaCP: {best['deltaCP']}")
+    print("paths:")
+    for index, path in enumerate(result["paths"], start=1):
+        labels = " -> ".join(step["partition_id"] for step in path)
+        print(f"  {index}. {labels}")
     return 0
 
 
@@ -338,6 +421,15 @@ def build_parser() -> argparse.ArgumentParser:
     compare_parser.add_argument("result_json")
     compare_parser.add_argument("--tolerance", type=float, default=1e-8)
     compare_parser.set_defaults(func=compare_result)
+
+    greedy_parser = subparsers.add_parser("greedy", help="Run branching greedy partition search on a benchmark.")
+    greedy_parser.add_argument("system_id")
+    greedy_parser.add_argument("--paths", type=int, default=20, help="Maximum active paths to keep.")
+    greedy_parser.add_argument("--branching-factor", type=int, default=2, help="Pairwise merges to keep per path.")
+    greedy_parser.add_argument("--score-key", default="causal_power", help="Metric key to maximize.")
+    greedy_parser.add_argument("--precision", type=int, default=None, help="Optional rounding precision.")
+    greedy_parser.add_argument("--json", action="store_true", help="Print the full JSON search result.")
+    greedy_parser.set_defaults(func=greedy_search)
 
     return parser
 

@@ -29,7 +29,7 @@ schemas/benchmark-input.schema.json
 ## Adding A Fixture
 
 1. Add or update a generator in `generators/`.
-2. Generate the benchmark JSON into `data/`.
+2. Generate the benchmark JSON into `src/causal_emergence_zoo/data/`.
 3. Add a benchmark card in `docs/benchmarks/`.
 4. Add or update tests in `tests/`.
 5. Run:

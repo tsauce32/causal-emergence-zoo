@@ -1,4 +1,4 @@
-"""Generate the starter benchmark systems in ``data/``.
+"""Generate the starter benchmark systems in package data.
 
 Run from the repository root:
 
@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
+PACKAGE_DATA = SRC / "causal_emergence_zoo" / "data"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
@@ -359,7 +360,7 @@ def build_systems() -> list[dict]:
 
 
 def main() -> None:
-    data_dir = ROOT / "data"
+    data_dir = PACKAGE_DATA
     data_dir.mkdir(exist_ok=True)
     for system in build_systems():
         output_path = data_dir / f"{system['id']}.json"

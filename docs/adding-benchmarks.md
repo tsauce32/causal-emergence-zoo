@@ -6,7 +6,7 @@ Start with `examples/benchmark-input.template.json` and read `docs/input-format.
 
 1. Add or update a generator in `generators/`.
 2. Include all parameters and a random seed if the system is synthetic.
-3. Generate the fixture into `data/`.
+3. Generate the fixture into `src/causal_emergence_zoo/data/`.
 4. Add a benchmark card in `docs/benchmarks/`.
 5. Explain the system's conceptual role in plain language.
 6. Store exhaustive partitions if the state count is small enough.
