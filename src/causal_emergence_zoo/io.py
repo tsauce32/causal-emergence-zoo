@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import json
 from importlib.resources import files
-from importlib.resources.abc import Traversable
 
 
-def data_dir() -> Traversable:
+def data_dir():
     """Return the packaged benchmark data resource directory."""
     return files("causal_emergence_zoo").joinpath("data")
 
