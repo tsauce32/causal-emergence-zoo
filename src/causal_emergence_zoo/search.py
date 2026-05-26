@@ -199,8 +199,8 @@ def branching_greedy_search(
     sampled = sorted(
         seen.values(),
         key=lambda record: (
-            record["score"],
-            record["deltaCP"],
+            _numeric_rank_key(record["score"]),
+            _numeric_rank_key(record["deltaCP"]),
             record["macro_state_count"],
             _reverse_lex_key(record["partition_id"]),
         ),
@@ -245,8 +245,8 @@ def _rank_candidates(
     return sorted(
         scored,
         key=lambda record: (
-            record["score"],
-            record["deltaCP"],
+            _numeric_rank_key(record["score"]),
+            _numeric_rank_key(record["deltaCP"]),
             record["macro_state_count"],
             _reverse_lex_key(record["partition_id"]),
         ),
@@ -258,13 +258,18 @@ def _rank_paths(paths: list[list[SearchRecord]]) -> list[list[SearchRecord]]:
     return sorted(
         paths,
         key=lambda path: (
-            path[-1]["score"],
-            path[-1]["deltaCP"],
-            sum(record["score"] for record in path),
+            _numeric_rank_key(path[-1]["score"]),
+            _numeric_rank_key(path[-1]["deltaCP"]),
+            _numeric_rank_key(sum(record["score"] for record in path)),
             _reverse_lex_key(">".join(record["partition_id"] for record in path)),
         ),
         reverse=True,
     )
+
+
+def _numeric_rank_key(value: float) -> float:
+    """Round rank-only scores so platform noise does not decide ties."""
+    return round(value, 12)
 
 
 def _reverse_lex_key(value: str) -> tuple[int, ...]:

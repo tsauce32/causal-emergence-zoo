@@ -21,7 +21,7 @@ def test_greedy_completion_recovers_two_block_macro_scale():
 
     assert [step["partition_id"] for step in path] == [
         "0|1|2|3",
-        "0|1|23",
+        "01|2|3",
         "01|23",
         "0123",
     ]
