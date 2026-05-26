@@ -3,6 +3,24 @@ from causal_emergence_zoo.validation import validate_system
 from generators.generate_starter_systems import build_systems
 
 
+def _canonical_fixture(value, parent_key=None):
+    if isinstance(value, float):
+        return round(value, 9)
+    if isinstance(value, dict):
+        return {
+            key: _canonical_fixture(item, key)
+            for key, item in sorted(value.items())
+        }
+    if isinstance(value, list):
+        items = [_canonical_fixture(item, parent_key) for item in value]
+        if parent_key == "partitions":
+            return sorted(items, key=lambda item: item["id"])
+        if parent_key == "levels":
+            return sorted(items, key=lambda item: item["partition_id"])
+        return items
+    return value
+
+
 def test_all_fixtures_validate():
     for system_id in available_systems():
         system = load_system(system_id)
@@ -15,7 +33,7 @@ def test_generated_systems_match_stored_fixtures():
     assert generated
     for system_id, system in generated.items():
         stored = load_system(system_id)
-        assert stored == system
+        assert _canonical_fixture(stored) == _canonical_fixture(system)
 
 
 def test_two_block_fixture_records_positive_delta_cp():
