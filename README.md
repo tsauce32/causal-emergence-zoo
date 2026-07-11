@@ -200,6 +200,7 @@ Benchmark fixtures are package data. A normal wheel install can load them with `
 - [Streaming continuous data](docs/continuous-data.md)
 - [Continuous multiscale recovery case study](docs/continuous-recovery-case-study.md)
 - [Social-system atlas benchmark](docs/social-system-atlas.md)
+- [RAS3 religion-policy empirical pilot](docs/benchmarks/ras3-religion-policy-pilot.md)
 - [Benchmark design](docs/benchmark-design.md)
 - [Benchmark cards](docs/benchmarks/README.md)
 - [Contributing](CONTRIBUTING.md)
