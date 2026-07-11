@@ -198,6 +198,7 @@ Benchmark fixtures are package data. A normal wheel install can load them with `
 - [CE 2.0 narrative API](docs/narrative-api.md)
 - [Hoel CE 2.0 paper reference systems](docs/ce2-paper-reference.md)
 - [Streaming continuous data](docs/continuous-data.md)
+- [Continuous multiscale recovery case study](docs/continuous-recovery-case-study.md)
 - [Benchmark design](docs/benchmark-design.md)
 - [Benchmark cards](docs/benchmarks/README.md)
 - [Contributing](CONTRIBUTING.md)
@@ -205,6 +206,7 @@ Benchmark fixtures are package data. A normal wheel install can load them with `
 ## Roadmap
 
 - Expand the Hoel CE 2.0 reference suite when exact paths or supplementary fixtures are published.
+- Benchmark approximate CE 2.0 search on larger published and domain-specific systems.
 - Add Engineering Emergence examples with branching greedy hierarchy traces for systems too large to exhaust.
 - Add reference plots for each benchmark family.
 - Add adapters/examples for comparing outputs from PyMergence and `einet`.

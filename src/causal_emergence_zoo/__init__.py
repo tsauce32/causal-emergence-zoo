@@ -1,6 +1,7 @@
 """Lightweight utilities for the causal-emergence benchmark zoo."""
 
 from causal_emergence_zoo.ce2 import analyze_ce2_path, check_dynamical_consistency, discover_ce2_path
+from causal_emergence_zoo.approximate import approximate_ce2_path
 from causal_emergence_zoo.coarse_grain import coarse_grain_tpm
 from causal_emergence_zoo.estimation import (
     estimate_tpm_from_trajectories,
@@ -17,6 +18,8 @@ from causal_emergence_zoo.continuous import (
     fit_continuous_state_encoder,
 )
 from causal_emergence_zoo.partitions import enumerate_partitions
+from causal_emergence_zoo.hierarchy import build_causal_hierarchy
+from causal_emergence_zoo.synthetic import generate_two_block_continuous_csv
 from causal_emergence_zoo.paper_systems import (
     ce2_paper_reference_values,
     figure2_equivalence_class_tpm,
@@ -32,9 +35,11 @@ __all__ = [
     "analyze_ce2_path",
     "analyze_continuous_csv",
     "analyze_trajectories",
+    "approximate_ce2_path",
     "available_systems",
     "branching_greedy_search",
     "build_narrative_graph",
+    "build_causal_hierarchy",
     "check_dynamical_consistency",
     "coarse_grain_tpm",
     "compute_metrics",
@@ -53,6 +58,7 @@ __all__ = [
     "figure3_top_heavy_tpm",
     "figure4_block_model_tpm",
     "greedy_completion",
+    "generate_two_block_continuous_csv",
     "load_system",
     "narrate_tpm",
     "validate_system",

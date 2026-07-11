@@ -22,6 +22,7 @@ from causal_emergence_zoo.estimation import (
     materialize_trajectories,
 )
 from causal_emergence_zoo.metrics import Matrix, compute_metrics
+from causal_emergence_zoo.hierarchy import build_causal_hierarchy
 
 
 def narrate_tpm(
@@ -153,6 +154,7 @@ def build_narrative_graph(
     gain_tolerance: float = 1e-12,
 ) -> dict[str, Any]:
     """Render CE 2.0 analysis as a structured, auditable narrative graph."""
+    hierarchy = build_causal_hierarchy(model, ce2)
     labels = model["state_labels"]
     endpoint = ce2["endpoint"]
     apportioning = ce2["causal_apportioning"]
@@ -186,6 +188,7 @@ def build_narrative_graph(
             "source": model["source"],
         },
         "ce2": ce2,
+        "causal_hierarchy": hierarchy,
         "selected_macro_model": _selected_macro_model(endpoint, labels) if has_emergence else None,
         "narrative_graph": {
             "nodes": nodes,
@@ -203,7 +206,7 @@ def build_narrative_graph(
         "limitations": [
             "Exact CE 2.0 discovery is deliberately limited to small state spaces because partition enumeration is combinatorial.",
             "Dynamical consistency is checked over the declared finite horizon, not every possible future time step.",
-            "This v0 does not yet implement black-boxing, higher-order macrostates, native continuous-state CE 2.0, or scalable CE 2.0 heuristics.",
+            "This v0 does not yet implement black-boxing, higher-order macrostates, or native continuous-state CE 2.0; bounded beam search is available but is not globally optimal.",
         ],
     }
 
