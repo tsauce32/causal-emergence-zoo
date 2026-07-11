@@ -25,7 +25,7 @@ def derive_temporal_features(
     """
     lags = _positive_unique(differences, "differences")
     windows = _positive_unique(volatility_windows, "volatility_windows")
-    maximum = max([1, *lags, *windows])
+    maximum = max([1, *[lag + 1 for lag in lags], *windows])
     current: str | None | object = object()
     history: deque[list[float]] = deque(maxlen=maximum)
     for trajectory, timestamp, values in observations:

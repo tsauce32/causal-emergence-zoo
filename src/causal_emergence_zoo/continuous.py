@@ -24,6 +24,7 @@ from typing import Any
 from causal_emergence_zoo.ce2 import analyze_ce2_path
 from causal_emergence_zoo.estimation import estimate_tpm_from_transition_counts
 from causal_emergence_zoo.narrative import narrate_tpm
+from causal_emergence_zoo.temporal import derive_temporal_features, temporal_feature_names
 
 
 MAX_EXACT_MICROSTATES = 8
@@ -137,6 +138,8 @@ def fit_continuous_csv_encoder(
     max_iterations: int = 50,
     validation_fraction: float = 0.0,
     split_seed: int = 0,
+    temporal_differences: Sequence[int] = (),
+    temporal_volatility_windows: Sequence[int] = (),
 ) -> dict[str, Any]:
     """Pass 1: stream a grouped CSV and fit a train-only frozen state encoder."""
     _validate_csv_configuration(
@@ -150,13 +153,15 @@ def fit_continuous_csv_encoder(
     signature_before = _source_signature(path)
     row_counts = {"all": 0, "train": 0, "validation": 0}
 
+    derived_names = temporal_feature_names(feature_columns, differences=temporal_differences, volatility_windows=temporal_volatility_windows)
     def training_observations() -> Iterator[list[float]]:
-        for trajectory_id, _, vector in _iter_csv_observations(
+        raw = _iter_csv_observations(
             path,
             feature_columns=feature_columns,
             trajectory_column=trajectory_column,
             time_column=time_column,
-        ):
+        )
+        for trajectory_id, _, vector in derive_temporal_features(raw, feature_names=feature_columns, differences=temporal_differences, volatility_windows=temporal_volatility_windows):
             row_counts["all"] += 1
             split = _trajectory_split(
                 trajectory_id,
@@ -170,7 +175,7 @@ def fit_continuous_csv_encoder(
 
     encoder = fit_continuous_state_encoder(
         training_observations(),
-        feature_names=feature_columns,
+        feature_names=derived_names,
         microstate_count=microstate_count,
         reservoir_size=reservoir_size,
         random_seed=random_seed,
@@ -184,6 +189,8 @@ def fit_continuous_csv_encoder(
         {
             "input_schema": {
                 "feature_columns": list(feature_columns),
+                "derived_feature_columns": derived_names,
+                "temporal_features": {"differences": list(temporal_differences), "volatility_windows": list(temporal_volatility_windows), "leading_row_policy": "drop_until_defined"},
                 "trajectory_column": trajectory_column,
                 "time_column": time_column,
                 "ordering_assurance": "caller_declared_grouped_by_trajectory",
@@ -221,8 +228,11 @@ def count_continuous_csv_transitions(
     would violate this module's bounded-memory contract.
     """
     names, _, _, centroids = _encoder_components(encoder)
+    schema = encoder.get("input_schema", {})
+    source_names = schema.get("feature_columns", names)
+    temporal = schema.get("temporal_features", {})
     _validate_csv_configuration(
-        feature_columns=names,
+        feature_columns=source_names,
         trajectory_column=trajectory_column,
         time_column=time_column,
         row_order_is_time=row_order_is_time,
@@ -254,12 +264,13 @@ def count_continuous_csv_transitions(
     previous_time: float | None = None
     previous_scope: str | None = None
 
-    for trajectory_id, timestamp, vector in _iter_csv_observations(
+    raw_observations = _iter_csv_observations(
         path,
-        feature_columns=names,
+        feature_columns=source_names,
         trajectory_column=trajectory_column,
         time_column=time_column,
-    ):
+    )
+    for trajectory_id, timestamp, vector in derive_temporal_features(raw_observations, feature_names=source_names, differences=temporal.get("differences", ()), volatility_windows=temporal.get("volatility_windows", ())):
         scope = _trajectory_split(
             trajectory_id,
             trajectory_column=trajectory_column,
@@ -334,7 +345,9 @@ def count_continuous_csv_transitions(
             or signature_before == expected_source_signature,
         },
         "input_schema": {
-            "feature_columns": names,
+            "feature_columns": source_names,
+            "derived_feature_columns": names,
+            "temporal_features": temporal,
             "trajectory_column": trajectory_column,
             "time_column": time_column,
             "ordering_assurance": "caller_declared_grouped_by_trajectory",
@@ -378,6 +391,8 @@ def analyze_continuous_csv(
     minimum_state_observations: int = 0,
     minimum_outgoing_transitions: int = 0,
     support_policy: str = "retain_exploratory",
+    temporal_differences: Sequence[int] = (),
+    temporal_volatility_windows: Sequence[int] = (),
 ) -> dict[str, Any]:
     """Run a two-pass, bounded-memory continuous CSV CE 2.0 analysis.
 
@@ -413,6 +428,8 @@ def analyze_continuous_csv(
         max_iterations=max_iterations,
         validation_fraction=validation_fraction,
         split_seed=split_seed,
+        temporal_differences=temporal_differences,
+        temporal_volatility_windows=temporal_volatility_windows,
     )
     transitions = count_continuous_csv_transitions(
         csv_path,

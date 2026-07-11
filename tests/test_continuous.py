@@ -212,3 +212,22 @@ def test_streaming_csv_retains_only_configured_reservoir_not_all_rows(tmp_path):
     assert encoder["reservoir_size_used"] == 13
     assert transitions["splits"]["all"]["row_count"] == 10_000
     assert transitions["splits"]["all"]["transition_count"] == 9_999
+
+
+def test_continuous_csv_uses_same_temporal_features_in_both_passes(tmp_path):
+    path = tmp_path / "temporal.csv"
+    path.write_text("trajectory_id,time,signal\na,0,0\na,1,1\na,2,3\na,3,6\na,4,10\n", encoding="utf-8")
+
+    result = analyze_continuous_csv(
+        path,
+        feature_columns=["signal"],
+        microstate_count=2,
+        trajectory_column="trajectory_id",
+        time_column="time",
+        temporal_differences=[1],
+        smoothing=0.1,
+    )
+
+    encoder = result["continuous_data"]["discretizer"]
+    assert encoder["input_schema"]["derived_feature_columns"] == ["signal", "delta_lag_1:signal"]
+    assert result["continuous_data"]["transitions"]["splits"]["all"]["row_count"] == 4

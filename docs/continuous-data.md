@@ -151,3 +151,12 @@ The pipeline does not infer interventions from observational data. It is useful
 for systematically proposing, auditing, and stress-testing multiscale narratives;
 external causal knowledge is still needed to treat the transition model as an
 interventional one.
+
+## Temporal Change Features
+
+Use `--temporal-difference 1` to append one-step within-trajectory changes, or
+`--temporal-volatility-window 5` to append trailing five-observation volatility.
+Rows without sufficient prior history are dropped; transformations never cross a
+trajectory or declared gap boundary. These features let the learned states
+distinguish a stable country from a similarly situated country that is rapidly
+changing.
