@@ -20,6 +20,11 @@ from causal_emergence_zoo.continuous import (
 from causal_emergence_zoo.partitions import enumerate_partitions
 from causal_emergence_zoo.hierarchy import build_causal_hierarchy
 from causal_emergence_zoo.synthetic import generate_two_block_continuous_csv
+from causal_emergence_zoo.social_atlas import (
+    assemble_social_atlas,
+    load_country_year_source,
+    write_social_atlas_csv,
+)
 from causal_emergence_zoo.paper_systems import (
     ce2_paper_reference_values,
     figure2_equivalence_class_tpm,
@@ -40,6 +45,7 @@ __all__ = [
     "branching_greedy_search",
     "build_narrative_graph",
     "build_causal_hierarchy",
+    "assemble_social_atlas",
     "check_dynamical_consistency",
     "coarse_grain_tpm",
     "compute_metrics",
@@ -59,7 +65,9 @@ __all__ = [
     "figure4_block_model_tpm",
     "greedy_completion",
     "generate_two_block_continuous_csv",
+    "load_country_year_source",
     "load_system",
     "narrate_tpm",
+    "write_social_atlas_csv",
     "validate_system",
 ]
