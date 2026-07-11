@@ -196,6 +196,7 @@ Benchmark fixtures are package data. A normal wheel install can load them with `
 - [Compatibility levels](docs/compatibility-levels.md)
 - [Algorithm harmonization spec](docs/algorithm-harmonization-spec-change.md)
 - [CE 2.0 narrative API](docs/narrative-api.md)
+- [Hoel CE 2.0 paper reference systems](docs/ce2-paper-reference.md)
 - [Streaming continuous data](docs/continuous-data.md)
 - [Benchmark design](docs/benchmark-design.md)
 - [Benchmark cards](docs/benchmarks/README.md)
@@ -203,7 +204,7 @@ Benchmark fixtures are package data. A normal wheel install can load them with `
 
 ## Roadmap
 
-- Add Hoel CE 2.0-style examples that match published figures more closely.
+- Expand the Hoel CE 2.0 reference suite when exact paths or supplementary fixtures are published.
 - Add Engineering Emergence examples with branching greedy hierarchy traces for systems too large to exhaust.
 - Add reference plots for each benchmark family.
 - Add adapters/examples for comparing outputs from PyMergence and `einet`.

@@ -17,6 +17,14 @@ from causal_emergence_zoo.continuous import (
     fit_continuous_state_encoder,
 )
 from causal_emergence_zoo.partitions import enumerate_partitions
+from causal_emergence_zoo.paper_systems import (
+    ce2_paper_reference_values,
+    figure2_equivalence_class_tpm,
+    figure2_path,
+    figure3_mesoscale_tpm,
+    figure3_top_heavy_tpm,
+    figure4_block_model_tpm,
+)
 from causal_emergence_zoo.search import branching_greedy_search, greedy_completion
 from causal_emergence_zoo.validation import validate_system
 
@@ -35,9 +43,15 @@ __all__ = [
     "enumerate_partitions",
     "estimate_tpm_from_trajectories",
     "estimate_tpm_from_transition_counts",
+    "ce2_paper_reference_values",
     "encode_continuous_observation",
     "fit_continuous_csv_encoder",
     "fit_continuous_state_encoder",
+    "figure2_equivalence_class_tpm",
+    "figure2_path",
+    "figure3_mesoscale_tpm",
+    "figure3_top_heavy_tpm",
+    "figure4_block_model_tpm",
     "greedy_completion",
     "load_system",
     "narrate_tpm",
