@@ -375,6 +375,9 @@ def analyze_continuous_csv(
     search_mode: str = "exact",
     beam_width: int = 20,
     branching_factor: int = 4,
+    minimum_state_observations: int = 0,
+    minimum_outgoing_transitions: int = 0,
+    support_policy: str = "retain_exploratory",
 ) -> dict[str, Any]:
     """Run a two-pass, bounded-memory continuous CSV CE 2.0 analysis.
 
@@ -393,6 +396,10 @@ def analyze_continuous_csv(
         )
     if microstate_count < 2:
         raise ValueError("microstate_count must be at least 2 for continuous CE 2.0 analysis.")
+    if minimum_state_observations < 0 or minimum_outgoing_transitions < 0:
+        raise ValueError("minimum support values must be non-negative.")
+    if support_policy not in {"retain_exploratory", "reject_run"}:
+        raise ValueError("support_policy must be 'retain_exploratory' or 'reject_run'.")
 
     encoder = fit_continuous_csv_encoder(
         csv_path,
@@ -425,6 +432,13 @@ def analyze_continuous_csv(
         raise ValueError(
             f"The {selection_scope} split cannot support a TPM: {selection_estimate['error']}"
         )
+    support = _state_support_audit(
+        selection_estimate,
+        minimum_state_observations=minimum_state_observations,
+        minimum_outgoing_transitions=minimum_outgoing_transitions,
+    )
+    if support_policy == "reject_run" and not support["is_adequately_supported"]:
+        raise ValueError("Learned microstate support is below the configured threshold.")
 
     source = {
         "kind": "streaming_continuous_csv",
@@ -470,6 +484,7 @@ def analyze_continuous_csv(
 
     narrative["analysis_type"] = "ce2_multiscale_discretized_continuous"
     narrative["search"] = {"mode": resolved_search_mode, "beam_width": beam_width if resolved_search_mode == "beam" else None, "branching_factor": branching_factor if resolved_search_mode == "beam" else None}
+    narrative["state_support"] = {**support, "policy": support_policy}
     narrative["input_model"].update(
         {
             "transition_counts": selection_estimate["transition_counts"],
@@ -512,6 +527,29 @@ def analyze_continuous_csv(
         ]
     )
     return narrative
+
+
+def _state_support_audit(
+    estimate: dict[str, Any],
+    *,
+    minimum_state_observations: int,
+    minimum_outgoing_transitions: int,
+) -> dict[str, Any]:
+    observation_counts = estimate["state_observation_counts"]
+    outgoing_counts = estimate["outgoing_counts"]
+    under_supported = [
+        index
+        for index, (observations, outgoing) in enumerate(zip(observation_counts, outgoing_counts))
+        if observations < minimum_state_observations or outgoing < minimum_outgoing_transitions
+    ]
+    return {
+        "minimum_state_observations": minimum_state_observations,
+        "minimum_outgoing_transitions": minimum_outgoing_transitions,
+        "observation_counts": observation_counts,
+        "outgoing_transition_counts": outgoing_counts,
+        "under_supported_state_indices": under_supported,
+        "is_adequately_supported": not under_supported,
+    }
 
 
 _SCOPES = ("all", "train", "validation")

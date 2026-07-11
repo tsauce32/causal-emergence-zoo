@@ -171,6 +171,22 @@ def test_continuous_analysis_rejects_more_than_exact_state_budget(tmp_path):
         )
 
 
+def test_continuous_state_support_can_reject_under_supported_encoder_states(tmp_path):
+    path = tmp_path / "support.csv"
+    _write_two_block_csv(path)
+
+    with pytest.raises(ValueError, match="support"):
+        analyze_continuous_csv(
+            path,
+            feature_columns=["signal"],
+            microstate_count=4,
+            trajectory_column="trajectory_id",
+            time_column="time",
+            minimum_state_observations=10_000,
+            support_policy="reject_run",
+        )
+
+
 def test_streaming_csv_retains_only_configured_reservoir_not_all_rows(tmp_path):
     path = tmp_path / "many-rows.csv"
     rows = ["time,signal"]
