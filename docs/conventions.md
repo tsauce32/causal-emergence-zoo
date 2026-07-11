@@ -63,6 +63,34 @@ deltaCP = partition causal_power - microscale causal_power
 
 This is the current fixture-level convention. Engineering Emergence also discusses non-redundant apportioning across paths in the lattice. That richer hierarchy convention is a planned compatibility target.
 
+## CE 2.0 Path Convention
+
+The experimental narrative API implements the finite-Markov-chain hard-partition
+setting of CE 2.0 separately from the stored fixture hierarchy.
+
+The existing `causal_power` value is numerically `determinism + specificity - 1`,
+which is the CP generalization used by the CE 2.0 implementation. However,
+fixture `deltaCP` is always a partition's CP relative to the microscale. CE 2.0
+instead requires dynamically consistent scales on a nested micro-to-macro path,
+then apportions each scale's CP increment relative to the preceding scale. The
+CE 2.0 implementation never treats a score-sorted fixture hierarchy or an
+ordinary greedy path as a CE 2.0 path.
+
+See [the CE 2.0 narrative API guide](narrative-api.md) for the strict
+finite-horizon random-walk consistency test, endpoint selection, and
+emergent-complexity calculation.
+
+## Continuous Observation Bridge
+
+The streaming continuous-data workflow first maps numeric observations into a
+frozen learned finite state space, then applies the same CE 2.0 partition-path
+analysis to the resulting TPM. It is not a native continuous-state CE 2.0
+calculation. Its encoder, feature scaling, reservoir sample, seed, state budget,
+and input-order contract are serialized with the result and should be treated as
+part of the causal-model specification.
+
+See [the streaming continuous-data guide](continuous-data.md).
+
 ## Harmonization Layer
 
 The zoo's baseline convention is `zoo.ce1`. External results may report other score namespaces instead of, or in addition to, `zoo.ce1`:

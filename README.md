@@ -4,6 +4,11 @@
 
 The project is intentionally not a full causal-emergence analysis package. Its job is to be a reliable zoo of specimens: finite Markov systems with known or computed multiscale causal structure that other tools can load, validate, plot, and test against.
 
+It now also contains an **experimental CE 2.0 narrative prototype** for small,
+discrete trajectory data. The prototype is designed as a bridge toward a future
+analysis library; it remains intentionally conservative about causal claims and
+does not change the zoo's primary benchmark role.
+
 ## Problem This Solves
 
 Causal-emergence implementations can disagree because of bugs, different normalization choices, different intervention distributions, different coarse-graining rules, or different hierarchy-search methods.
@@ -115,6 +120,52 @@ print(result["best_partition"]["blocks"])
 print(result["best_partition"]["deltaCP"])
 ```
 
+## Experimental CE 2.0 Narrative Workflow
+
+For small discrete trajectory datasets, the package can estimate a first-order
+Markov TPM, find dynamically consistent CE 2.0 scales, apportion CP gains along
+a nested micro-to-macro path, and return an auditable narrative graph.
+
+```bash
+cez narrate examples/two-block-trajectories.example.json
+cez narrate examples/two-block-trajectories.example.json --json --output narrative.json
+```
+
+```python
+from causal_emergence_zoo import analyze_trajectories
+
+result = analyze_trajectories(
+    [["A", "A", "B", "B", "A"], ["C", "C", "D", "D", "C"]],
+    state_labels=["A", "B", "C", "D"],
+)
+print(result["narrative_text"])
+```
+
+This prototype follows the CE 2.0 path formulation, rather than reinterpreting
+the existing best-partition hierarchy as CE 2.0. It only performs exact search
+through eight states, checks finite-horizon dynamic consistency, and labels
+trajectory-derived models as observational. See [the narrative API guide](docs/narrative-api.md).
+
+## Streaming Continuous CSV Workflow
+
+Large continuous datasets can now be streamed through a bounded-memory bridge:
+a reservoir-sampled, frozen k-means encoder converts observations into 2–8
+learned microstates, then the package builds a TPM and applies exact CE 2.0 to
+that finite model.
+
+```bash
+cez narrate-continuous observations.csv \
+  --feature temperature --feature pressure \
+  --trajectory-column session --time-column time \
+  --microstates 6 --reservoir-size 100000 \
+  --json --output continuous-narrative.json
+```
+
+The file is read twice but never loaded in full. Rows must be grouped by
+trajectory and time ordered; arbitrary interleaved IDs are intentionally not
+supported in bounded-memory mode. This is a discretized continuous-data bridge,
+not native continuous-state CE 2.0. See [the continuous-data guide](docs/continuous-data.md).
+
 ## Passing Information Into The Zoo
 
 There are two main information paths:
@@ -144,6 +195,8 @@ Benchmark fixtures are package data. A normal wheel install can load them with `
 - [Adapter guide](docs/adapter-guide.md)
 - [Compatibility levels](docs/compatibility-levels.md)
 - [Algorithm harmonization spec](docs/algorithm-harmonization-spec-change.md)
+- [CE 2.0 narrative API](docs/narrative-api.md)
+- [Streaming continuous data](docs/continuous-data.md)
 - [Benchmark design](docs/benchmark-design.md)
 - [Benchmark cards](docs/benchmarks/README.md)
 - [Contributing](CONTRIBUTING.md)

@@ -12,7 +12,9 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
+from causal_emergence_zoo.continuous import analyze_continuous_csv
 from causal_emergence_zoo.io import available_systems, load_system
+from causal_emergence_zoo.narrative import analyze_trajectories
 from causal_emergence_zoo.search import branching_greedy_search
 from causal_emergence_zoo.validation import validate_system
 
@@ -396,6 +398,104 @@ def greedy_search(args: argparse.Namespace) -> int:
     return 0
 
 
+def narrate_trajectories(args: argparse.Namespace) -> int:
+    """Estimate and narrate a CE 2.0 model from a trajectory JSON document."""
+    payload = _read_json(Path(args.input_json))
+    if not isinstance(payload, dict):
+        raise ValueError("Narrative input must be a JSON object containing trajectories.")
+    if "trajectories" not in payload:
+        raise ValueError("Narrative input must include a 'trajectories' array.")
+
+    smoothing = args.smoothing if args.smoothing is not None else payload.get("smoothing", 0.0)
+    state_labels = payload.get("state_labels")
+    result = analyze_trajectories(
+        payload["trajectories"],
+        state_labels=state_labels,
+        smoothing=smoothing,
+        max_exhaustive_states=args.max_states,
+        consistency_horizon=args.consistency_horizon,
+        consistency_tolerance=args.consistency_tolerance,
+        gain_tolerance=args.gain_tolerance,
+        edge_probability_threshold=args.edge_threshold,
+        top_k=args.top_k,
+        bootstrap_replicates=args.bootstrap,
+        bootstrap_seed=args.seed,
+    )
+
+    serialized = json.dumps(result, indent=2, allow_nan=False)
+    if args.output:
+        Path(args.output).write_text(serialized + "\n", encoding="utf-8")
+    if args.json:
+        print(serialized)
+        return 0
+
+    summary = result["summary"]
+    endpoint = result["ce2"]["endpoint"]
+    print(summary["headline"])
+    print(result["narrative_text"])
+    print(f"endpoint: {endpoint['partition_id']}")
+    print(f"CE 2.0 path steps: {len(result['ce2']['path']) - 1}")
+    complexity = result["ce2"]["emergent_complexity"]
+    if complexity["status"] == "defined":
+        print(f"emergent complexity: {complexity['bits']:.6f} bits")
+    else:
+        print(f"emergent complexity: {complexity['status']}")
+    robustness = result["robustness"]
+    if robustness["status"] == "completed":
+        print(
+            "bootstrap selected-endpoint frequency: "
+            f"{robustness['selected_endpoint_frequency']:.6f} "
+            f"({robustness['successful_replicates']}/{robustness['replicates']} successful)"
+        )
+    elif robustness["status"] == "unavailable":
+        print("bootstrap: no successful replicates")
+    if args.output:
+        print(f"wrote narrative graph: {args.output}")
+    return 0
+
+
+def narrate_continuous_csv(args: argparse.Namespace) -> int:
+    """Stream a continuous CSV through a frozen encoder and CE 2.0 analysis."""
+    result = analyze_continuous_csv(
+        args.csv_path,
+        feature_columns=args.features,
+        microstate_count=args.microstates,
+        trajectory_column=args.trajectory_column,
+        time_column=args.time_column,
+        row_order_is_time=args.row_order_is_time,
+        reservoir_size=args.reservoir_size,
+        random_seed=args.seed,
+        max_iterations=args.max_iterations,
+        validation_fraction=args.validation_fraction,
+        split_seed=args.split_seed,
+        max_gap=args.max_gap,
+        smoothing=args.smoothing,
+        consistency_horizon=args.consistency_horizon,
+        consistency_tolerance=args.consistency_tolerance,
+        gain_tolerance=args.gain_tolerance,
+        edge_probability_threshold=args.edge_threshold,
+        top_k=args.top_k,
+    )
+    serialized = json.dumps(result, indent=2, allow_nan=False)
+    if args.output:
+        Path(args.output).write_text(serialized + "\n", encoding="utf-8")
+    if args.json:
+        print(serialized)
+        return 0
+
+    summary = result["summary"]
+    selection = result["continuous_data"]["selection"]
+    validation = result["continuous_data"]["validation"]
+    print(summary["headline"])
+    print(result["narrative_text"])
+    print(f"selection scope: {selection['scope']}")
+    print("continuous encoder: frozen reservoir-sampled standardized k-means")
+    print(f"validation: {validation['status']}")
+    if args.output:
+        print(f"wrote narrative graph: {args.output}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cez",
@@ -430,6 +530,50 @@ def build_parser() -> argparse.ArgumentParser:
     greedy_parser.add_argument("--precision", type=int, default=None, help="Optional rounding precision.")
     greedy_parser.add_argument("--json", action="store_true", help="Print the full JSON search result.")
     greedy_parser.set_defaults(func=greedy_search)
+
+    narrate_parser = subparsers.add_parser(
+        "narrate",
+        help="Estimate a small Markov model from trajectories and produce a CE 2.0 narrative graph.",
+    )
+    narrate_parser.add_argument("input_json", help="JSON object with trajectories and optional state_labels/smoothing.")
+    narrate_parser.add_argument("--smoothing", type=float, default=None, help="Additive smoothing per target state.")
+    narrate_parser.add_argument("--bootstrap", type=int, default=0, help="Trajectory bootstrap replicates (default: 0).")
+    narrate_parser.add_argument("--seed", type=int, default=0, help="Random seed for bootstrap resampling.")
+    narrate_parser.add_argument("--max-states", type=int, default=8, help="Maximum state count for exact CE 2.0 search.")
+    narrate_parser.add_argument("--consistency-horizon", type=int, default=5, help="Random-walk horizon for consistency checks.")
+    narrate_parser.add_argument("--consistency-tolerance", type=float, default=1e-10, help="Maximum total KL divergence for a valid macro scale.")
+    narrate_parser.add_argument("--gain-tolerance", type=float, default=1e-12, help="Minimum CP increment treated as positive.")
+    narrate_parser.add_argument("--edge-threshold", type=float, default=0.0, help="Omit macro-transition edges at or below this probability.")
+    narrate_parser.add_argument("--top-k", type=int, default=10, help="Number of top consistent scales to retain in output.")
+    narrate_parser.add_argument("--json", action="store_true", help="Print only the JSON narrative graph to stdout.")
+    narrate_parser.add_argument("--output", help="Optional file path for the JSON narrative graph.")
+    narrate_parser.set_defaults(func=narrate_trajectories)
+
+    continuous_parser = subparsers.add_parser(
+        "narrate-continuous",
+        help="Stream a grouped continuous CSV into a learned finite-state CE 2.0 narrative model.",
+    )
+    continuous_parser.add_argument("csv_path", help="CSV or .csv.gz file; it is read twice without loading all rows.")
+    continuous_parser.add_argument("--feature", dest="features", action="append", required=True, help="Numeric feature column; repeat for each feature.")
+    continuous_parser.add_argument("--trajectory-column", help="Contiguous trajectory/group identifier column.")
+    continuous_parser.add_argument("--time-column", help="Strictly increasing numeric time column within each grouped trajectory.")
+    continuous_parser.add_argument("--row-order-is-time", action="store_true", help="Explicitly declare file row order as temporal when no time column is available.")
+    continuous_parser.add_argument("--microstates", type=int, default=8, help="Learned discrete microstates (2-8 for exact CE 2.0).")
+    continuous_parser.add_argument("--reservoir-size", type=int, default=10_000, help="Maximum continuous observations retained during encoder fitting.")
+    continuous_parser.add_argument("--seed", type=int, default=0, help="Random seed for reservoir sampling and k-means initialization.")
+    continuous_parser.add_argument("--max-iterations", type=int, default=50, help="Maximum Lloyd k-means iterations on the reservoir.")
+    continuous_parser.add_argument("--validation-fraction", type=float, default=0.0, help="Optional trajectory-level holdout fraction in [0, 1).")
+    continuous_parser.add_argument("--split-seed", type=int, default=0, help="Stable trajectory holdout split seed.")
+    continuous_parser.add_argument("--max-gap", type=float, help="Break a trajectory when adjacent numeric timestamps differ by more than this value.")
+    continuous_parser.add_argument("--smoothing", type=float, default=0.0, help="Additive smoothing per learned target state.")
+    continuous_parser.add_argument("--consistency-horizon", type=int, default=5, help="Random-walk horizon for CE 2.0 consistency checks.")
+    continuous_parser.add_argument("--consistency-tolerance", type=float, default=1e-10, help="Maximum total KL divergence for a strict dynamically consistent macro scale.")
+    continuous_parser.add_argument("--gain-tolerance", type=float, default=1e-12, help="Minimum CP increment treated as positive.")
+    continuous_parser.add_argument("--edge-threshold", type=float, default=0.0, help="Omit macro-transition edges at or below this probability.")
+    continuous_parser.add_argument("--top-k", type=int, default=10, help="Number of top consistent scales retained in output.")
+    continuous_parser.add_argument("--json", action="store_true", help="Print only the JSON analysis to stdout.")
+    continuous_parser.add_argument("--output", help="Optional file path for the JSON analysis.")
+    continuous_parser.set_defaults(func=narrate_continuous_csv)
 
     return parser
 
