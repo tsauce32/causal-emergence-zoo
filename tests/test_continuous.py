@@ -231,3 +231,39 @@ def test_continuous_csv_uses_same_temporal_features_in_both_passes(tmp_path):
     encoder = result["continuous_data"]["discretizer"]
     assert encoder["input_schema"]["derived_feature_columns"] == ["signal", "delta_lag_1:signal"]
     assert result["continuous_data"]["transitions"]["splits"]["all"]["row_count"] == 4
+
+
+def test_continuous_result_reports_frozen_tpm_predictive_scores(tmp_path):
+    path = tmp_path / "predictive.csv"
+    _write_two_block_csv(path)
+    result = analyze_continuous_csv(
+        path,
+        feature_columns=["signal"],
+        microstate_count=4,
+        trajectory_column="trajectory_id",
+        time_column="time",
+        validation_fraction=0.2,
+        split_seed=7,
+        smoothing=0.1,
+    )
+    scores = result["continuous_data"]["predictive_validation"]
+    assert scores["selection_micro_tpm"]["status"] == "defined"
+    assert scores["validation_micro_tpm"]["status"] == "defined"
+
+
+def test_continuous_result_can_run_transition_target_null(tmp_path):
+    path = tmp_path / "null.csv"
+    _write_two_block_csv(path)
+    result = analyze_continuous_csv(
+        path,
+        feature_columns=["signal"],
+        microstate_count=4,
+        trajectory_column="trajectory_id",
+        time_column="time",
+        smoothing=0.1,
+        null_replicates=2,
+        null_seed=11,
+    )
+    null = result["continuous_data"]["transition_null_validation"]
+    assert null["status"] == "completed"
+    assert len(null["null_endpoint_cp_gains"]) == 2

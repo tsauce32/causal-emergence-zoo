@@ -140,6 +140,7 @@ def fit_continuous_csv_encoder(
     split_seed: int = 0,
     temporal_differences: Sequence[int] = (),
     temporal_volatility_windows: Sequence[int] = (),
+    max_gap: float | None = None,
 ) -> dict[str, Any]:
     """Pass 1: stream a grouped CSV and fit a train-only frozen state encoder."""
     _validate_csv_configuration(
@@ -161,7 +162,7 @@ def fit_continuous_csv_encoder(
             trajectory_column=trajectory_column,
             time_column=time_column,
         )
-        for trajectory_id, _, vector in derive_temporal_features(raw, feature_names=feature_columns, differences=temporal_differences, volatility_windows=temporal_volatility_windows):
+        for trajectory_id, _, vector in derive_temporal_features(raw, feature_names=feature_columns, differences=temporal_differences, volatility_windows=temporal_volatility_windows, max_gap=max_gap):
             row_counts["all"] += 1
             split = _trajectory_split(
                 trajectory_id,
@@ -270,7 +271,7 @@ def count_continuous_csv_transitions(
         trajectory_column=trajectory_column,
         time_column=time_column,
     )
-    for trajectory_id, timestamp, vector in derive_temporal_features(raw_observations, feature_names=source_names, differences=temporal.get("differences", ()), volatility_windows=temporal.get("volatility_windows", ())):
+    for trajectory_id, timestamp, vector in derive_temporal_features(raw_observations, feature_names=source_names, differences=temporal.get("differences", ()), volatility_windows=temporal.get("volatility_windows", ()), max_gap=max_gap):
         scope = _trajectory_split(
             trajectory_id,
             trajectory_column=trajectory_column,
@@ -388,11 +389,14 @@ def analyze_continuous_csv(
     search_mode: str = "exact",
     beam_width: int = 20,
     branching_factor: int = 4,
+    max_partition_evaluations: int = 100_000,
     minimum_state_observations: int = 0,
     minimum_outgoing_transitions: int = 0,
     support_policy: str = "retain_exploratory",
     temporal_differences: Sequence[int] = (),
     temporal_volatility_windows: Sequence[int] = (),
+    null_replicates: int = 0,
+    null_seed: int = 0,
 ) -> dict[str, Any]:
     """Run a two-pass, bounded-memory continuous CSV CE 2.0 analysis.
 
@@ -415,6 +419,8 @@ def analyze_continuous_csv(
         raise ValueError("minimum support values must be non-negative.")
     if support_policy not in {"retain_exploratory", "reject_run"}:
         raise ValueError("support_policy must be 'retain_exploratory' or 'reject_run'.")
+    if null_replicates < 0:
+        raise ValueError("null_replicates must be non-negative.")
 
     encoder = fit_continuous_csv_encoder(
         csv_path,
@@ -430,6 +436,7 @@ def analyze_continuous_csv(
         split_seed=split_seed,
         temporal_differences=temporal_differences,
         temporal_volatility_windows=temporal_volatility_windows,
+        max_gap=max_gap,
     )
     transitions = count_continuous_csv_transitions(
         csv_path,
@@ -481,6 +488,7 @@ def analyze_continuous_csv(
         search_mode=resolved_search_mode,
         beam_width=beam_width,
         branching_factor=branching_factor,
+        max_partition_evaluations=max_partition_evaluations,
         source=source,
     )
     selected_path = [step["blocks"] for step in narrative["ce2"]["path"]]
@@ -498,9 +506,29 @@ def analyze_continuous_csv(
         consistency_tolerance=consistency_tolerance,
         gain_tolerance=gain_tolerance,
     )
+    predictive_validation = {
+        "selection_micro_tpm": _predictive_score(selection_estimate, selection_estimate["tpm"]),
+        "validation_micro_tpm": _predictive_score(transitions["splits"]["validation"], selection_estimate["tpm"]),
+        "all_data_micro_tpm": _predictive_score(transitions["splits"]["all"], selection_estimate["tpm"]),
+        "note": "Scores evaluate the frozen selected microscale TPM; they support generalization assessment but are not CE2 quantities.",
+    }
+    null_validation = _transition_target_permutation_null(
+        selection_estimate,
+        observed_gain=narrative["ce2"]["causal_apportioning"]["endpoint_cp_gain"],
+        replicates=null_replicates,
+        seed=null_seed,
+        smoothing=smoothing,
+        consistency_horizon=consistency_horizon,
+        consistency_tolerance=consistency_tolerance,
+        gain_tolerance=gain_tolerance,
+        search_mode=resolved_search_mode,
+        beam_width=beam_width,
+        branching_factor=branching_factor,
+        max_partition_evaluations=max_partition_evaluations,
+    )
 
     narrative["analysis_type"] = "ce2_multiscale_discretized_continuous"
-    narrative["search"] = {"mode": resolved_search_mode, "beam_width": beam_width if resolved_search_mode == "beam" else None, "branching_factor": branching_factor if resolved_search_mode == "beam" else None}
+    narrative["search"] = {"mode": resolved_search_mode, "beam_width": beam_width if resolved_search_mode == "beam" else None, "branching_factor": branching_factor if resolved_search_mode == "beam" else None, "max_partition_evaluations": max_partition_evaluations if resolved_search_mode == "beam" else None, "termination_reason": narrative["ce2"].get("termination_reason", "exact_search")}
     narrative["state_support"] = {**support, "policy": support_policy}
     narrative["input_model"].update(
         {
@@ -525,6 +553,8 @@ def analyze_continuous_csv(
         },
         "validation": validation,
         "all_data_fixed_path": all_data,
+        "predictive_validation": predictive_validation,
+        "transition_null_validation": null_validation,
     }
     narrative["robustness"] = {
         "status": "not_requested",
@@ -567,6 +597,66 @@ def _state_support_audit(
         "under_supported_state_indices": under_supported,
         "is_adequately_supported": not under_supported,
     }
+
+
+def _predictive_score(estimate: dict[str, Any], tpm: list[list[float]]) -> dict[str, Any]:
+    """Return count-weighted held-out negative log likelihood for a frozen TPM."""
+    if estimate.get("status") != "ready":
+        return {"status": "unavailable", "reason": estimate.get("error")}
+    counts = estimate["transition_counts"]
+    total = sum(sum(row) for row in counts)
+    if total == 0:
+        return {"status": "unavailable", "reason": "no_transitions"}
+    loss = 0.0
+    for source, row in enumerate(counts):
+        for target, count in enumerate(row):
+            if count:
+                probability = tpm[source][target]
+                if probability <= 0.0:
+                    return {"status": "infinite_loss", "transition_count": total}
+                loss -= count * math.log(probability)
+    return {"status": "defined", "transition_count": total, "negative_log_likelihood": loss, "mean_negative_log_likelihood": loss / total}
+
+
+def _transition_target_permutation_null(
+    estimate: dict[str, Any],
+    *,
+    observed_gain: float,
+    replicates: int,
+    seed: int,
+    smoothing: float,
+    consistency_horizon: int,
+    consistency_tolerance: float,
+    gain_tolerance: float,
+    search_mode: str,
+    beam_width: int,
+    branching_factor: int,
+    max_partition_evaluations: int,
+) -> dict[str, Any]:
+    """Break source-target association while preserving source and target totals."""
+    if replicates == 0:
+        return {"status": "not_requested", "replicates": 0, "method": "global_target_permutation_preserving_source_outgoing_counts"}
+    if estimate.get("status") != "ready":
+        return {"status": "unavailable", "replicates": replicates, "reason": estimate.get("error")}
+    counts = estimate["transition_counts"]
+    targets = [target for row in counts for target, count in enumerate(row) for _ in range(count)]
+    source_totals = [sum(row) for row in counts]
+    rng = random.Random(seed)
+    gains = []
+    for _ in range(replicates):
+        shuffled = targets[:]
+        rng.shuffle(shuffled)
+        null_counts = [[0 for _ in row] for row in counts]
+        offset = 0
+        for source, total in enumerate(source_totals):
+            for target in shuffled[offset : offset + total]:
+                null_counts[source][target] += 1
+            offset += total
+        null_estimate = estimate_tpm_from_transition_counts(null_counts, state_labels=estimate["state_labels"], trajectory_count=estimate["trajectory_count"], nonempty_trajectory_count=estimate["nonempty_trajectory_count"], smoothing=smoothing, method="transition_target_permutation_null")
+        null_graph = narrate_tpm(null_estimate["tpm"], state_labels=estimate["state_labels"], max_exhaustive_states=MAX_EXACT_MICROSTATES, consistency_horizon=consistency_horizon, consistency_tolerance=consistency_tolerance, gain_tolerance=gain_tolerance, search_mode=search_mode, beam_width=beam_width, branching_factor=branching_factor, max_partition_evaluations=max_partition_evaluations, source={"kind": "transition_target_permutation_null", "causal_interpretation": "null_model"})
+        gains.append(null_graph["ce2"]["causal_apportioning"]["endpoint_cp_gain"])
+    exceedances = sum(gain >= observed_gain for gain in gains)
+    return {"status": "completed", "method": "global_target_permutation_preserving_source_outgoing_counts", "replicates": replicates, "seed": seed, "observed_endpoint_cp_gain": observed_gain, "null_endpoint_cp_gains": gains, "mean_null_endpoint_cp_gain": sum(gains) / len(gains), "empirical_upper_tail_probability": (exceedances + 1) / (len(gains) + 1), "caveat": "This transition-level null destroys source-target association but is not a substitute for a full within-trajectory time permutation."}
 
 
 _SCOPES = ("all", "train", "validation")

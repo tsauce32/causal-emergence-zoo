@@ -136,6 +136,10 @@ This result is a best sampled hierarchy, not a global partition optimum. Use the
 multiresolution workflow specified in `multiresolution-ce2-spec.md` before
 interpreting a larger learned state budget as a substantive scale.
 
+Use `--max-partition-evaluations` to cap approximate search work. The result
+records whether that budget was exhausted, so a partial search is never
+misreported as a global optimum.
+
 The final narrative contains the encoder, state support, quantization error,
 source signature, and a continuous-discretization caveat on every claim. Treat
 the result as a model-derived multiscale pattern conditional on:
@@ -160,3 +164,12 @@ Rows without sufficient prior history are dropped; transformations never cross a
 trajectory or declared gap boundary. These features let the learned states
 distinguish a stable country from a similarly situated country that is rapidly
 changing.
+
+## Validation Outputs
+
+Every continuous result reports negative log likelihood for the frozen selected
+micro TPM on selection, validation, and all-data transitions. With
+`--null-replicates N`, it also evaluates a transition-target permutation null
+that preserves source outgoing counts and the global target distribution while
+breaking source-target association. This is a transition-level null, not a full
+within-trajectory time shuffle; the result labels that limitation explicitly.

@@ -478,8 +478,11 @@ def narrate_continuous_csv(args: argparse.Namespace) -> int:
         search_mode=args.search_mode,
         beam_width=args.beam_width,
         branching_factor=args.branching_factor,
+        max_partition_evaluations=args.max_partition_evaluations,
         temporal_differences=args.temporal_difference,
         temporal_volatility_windows=args.temporal_volatility_window,
+        null_replicates=args.null_replicates,
+        null_seed=args.null_seed,
     )
     serialized = json.dumps(result, indent=2, allow_nan=False)
     if args.output:
@@ -567,8 +570,11 @@ def build_parser() -> argparse.ArgumentParser:
     continuous_parser.add_argument("--search-mode", choices=["exact", "beam", "auto"], default="exact", help="CE2 search: exact (default), bounded beam, or auto-select by state count.")
     continuous_parser.add_argument("--beam-width", type=int, default=20, help="Active paths retained by approximate beam search.")
     continuous_parser.add_argument("--branching-factor", type=int, default=4, help="Consistent merges retained per active approximate path.")
+    continuous_parser.add_argument("--max-partition-evaluations", type=int, default=100_000, help="Hard consistency-evaluation budget for approximate search.")
     continuous_parser.add_argument("--temporal-difference", type=int, action="append", default=[], help="Append a within-trajectory lagged-difference feature; repeat for multiple lags.")
     continuous_parser.add_argument("--temporal-volatility-window", type=int, action="append", default=[], help="Append trailing within-trajectory volatility features; repeat for multiple windows.")
+    continuous_parser.add_argument("--null-replicates", type=int, default=0, help="Transition-target permutation null replicates (default: 0).")
+    continuous_parser.add_argument("--null-seed", type=int, default=0, help="Random seed for transition-null replicates.")
     continuous_parser.add_argument("--reservoir-size", type=int, default=10_000, help="Maximum continuous observations retained during encoder fitting.")
     continuous_parser.add_argument("--seed", type=int, default=0, help="Random seed for reservoir sampling and k-means initialization.")
     continuous_parser.add_argument("--max-iterations", type=int, default=50, help="Maximum Lloyd k-means iterations on the reservoir.")

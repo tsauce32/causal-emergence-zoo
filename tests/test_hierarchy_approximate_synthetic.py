@@ -46,6 +46,12 @@ def test_approximate_search_operates_beyond_exact_eight_state_limit():
     assert result["endpoint"]["cp"] == pytest.approx(1.0)
 
 
+def test_approximate_search_records_partition_budget_exhaustion():
+    result = approximate_ce2_path(figure2_equivalence_class_tpm(), max_partition_evaluations=1)
+    assert result["termination_reason"] == "partition_evaluation_budget_exhausted"
+    assert result["partition_evaluation_count"] == 1
+
+
 def test_large_continuous_recovery_benchmark(tmp_path):
     path = tmp_path / "large-two-block.csv"
     generated = generate_two_block_continuous_csv(path, transition_count=10_000, seed=17)

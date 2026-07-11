@@ -17,6 +17,7 @@ def derive_temporal_features(
     feature_names: Sequence[str],
     differences: Sequence[int] = (),
     volatility_windows: Sequence[int] = (),
+    max_gap: float | None = None,
 ) -> Iterator[tuple[str | None, float | None, list[float]]]:
     """Append lagged differences and trailing volatility within trajectories.
 
@@ -27,14 +28,19 @@ def derive_temporal_features(
     windows = _positive_unique(volatility_windows, "volatility_windows")
     maximum = max([1, *[lag + 1 for lag in lags], *windows])
     current: str | None | object = object()
+    previous_time: float | None = None
     history: deque[list[float]] = deque(maxlen=maximum)
     for trajectory, timestamp, values in observations:
         if trajectory != current:
             current = trajectory
             history.clear()
+            previous_time = None
+        if max_gap is not None and timestamp is not None and previous_time is not None and timestamp - previous_time > max_gap:
+            history.clear()
         vector = [float(value) for value in values]
         sufficient = len(history) >= max([0, *lags, *[window - 1 for window in windows]])
         history.append(vector)
+        previous_time = timestamp
         if not sufficient:
             continue
         output = vector[:]

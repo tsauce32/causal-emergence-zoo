@@ -39,6 +39,7 @@ def narrate_tpm(
     search_mode: str = "exact",
     beam_width: int = 20,
     branching_factor: int = 4,
+    max_partition_evaluations: int = 100_000,
     source: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a CE 2.0 narrative graph from a supplied finite Markov TPM.
@@ -55,7 +56,7 @@ def narrate_tpm(
     if search_mode == "exact":
         ce2 = discover_ce2_path(tpm, max_exhaustive_states=max_exhaustive_states, consistency_horizon=consistency_horizon, consistency_tolerance=consistency_tolerance, gain_tolerance=gain_tolerance, top_k=top_k)
     elif search_mode == "beam":
-        ce2 = approximate_ce2_path(tpm, beam_width=beam_width, branching_factor=branching_factor, consistency_horizon=consistency_horizon, consistency_tolerance=consistency_tolerance)
+        ce2 = approximate_ce2_path(tpm, beam_width=beam_width, branching_factor=branching_factor, max_partition_evaluations=max_partition_evaluations, consistency_horizon=consistency_horizon, consistency_tolerance=consistency_tolerance)
     else:
         raise ValueError("search_mode must be 'exact' or 'beam'.")
     model = {

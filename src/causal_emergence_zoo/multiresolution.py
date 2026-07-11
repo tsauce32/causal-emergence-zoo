@@ -10,6 +10,7 @@ from typing import Any, Sequence
 
 from causal_emergence_zoo.continuous import analyze_continuous_csv
 from causal_emergence_zoo.continuous import _iter_csv_observations, encode_continuous_observation
+from causal_emergence_zoo.temporal import derive_temporal_features
 
 
 def analyze_continuous_multiresolution_csv(
@@ -49,7 +50,8 @@ def analyze_continuous_multiresolution_csv(
 
 def _anchor_vectors(csv_path: str | Path, feature_columns: Sequence[str], kwargs: dict[str, Any], limit: int) -> list[list[float]]:
     values = []
-    for _, _, vector in _iter_csv_observations(Path(csv_path), feature_columns=feature_columns, trajectory_column=kwargs.get("trajectory_column"), time_column=kwargs.get("time_column")):
+    raw = _iter_csv_observations(Path(csv_path), feature_columns=feature_columns, trajectory_column=kwargs.get("trajectory_column"), time_column=kwargs.get("time_column"))
+    for _, _, vector in derive_temporal_features(raw, feature_names=feature_columns, differences=kwargs.get("temporal_differences", ()), volatility_windows=kwargs.get("temporal_volatility_windows", ()), max_gap=kwargs.get("max_gap")):
         values.append(vector)
         if len(values) >= limit:
             break
