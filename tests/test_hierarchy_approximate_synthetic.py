@@ -4,6 +4,7 @@ import pytest
 
 from causal_emergence_zoo.approximate import approximate_ce2_path
 from causal_emergence_zoo.continuous import analyze_continuous_csv
+from causal_emergence_zoo.multiresolution import analyze_continuous_multiresolution_csv
 from causal_emergence_zoo.narrative import narrate_tpm
 from causal_emergence_zoo.paper_systems import figure2_equivalence_class_tpm, figure3_top_heavy_tpm
 from causal_emergence_zoo.synthetic import generate_two_block_continuous_csv
@@ -64,3 +65,22 @@ def test_large_continuous_recovery_benchmark(tmp_path):
     assert result["continuous_data"]["transitions"]["splits"]["all"]["transition_count"] == 10_000
     assert sorted(map(len, endpoint_blocks)) == [2, 2]
     assert result["status"] == "emergent"
+
+
+def test_multiresolution_profile_reports_peak_without_using_it_as_gate(tmp_path):
+    path = tmp_path / "two-block.csv"
+    generate_two_block_continuous_csv(path, transition_count=500, seed=9)
+
+    profile = analyze_continuous_multiresolution_csv(
+        path,
+        feature_columns=["signal"],
+        resolutions=[3, 4],
+        encoder_seeds=[9],
+        trajectory_column="trajectory_id",
+        time_column="time",
+        reservoir_size=1_000,
+    )
+
+    assert profile["kind"] == "causal_emergence.multiresolution_profile"
+    assert not profile["profile"]["classification_is_acceptance_gate"]
+    assert len(profile["resolution_runs"]) == 2

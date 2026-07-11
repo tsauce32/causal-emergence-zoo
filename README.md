@@ -198,6 +198,7 @@ Benchmark fixtures are package data. A normal wheel install can load them with `
 - [CE 2.0 narrative API](docs/narrative-api.md)
 - [Hoel CE 2.0 paper reference systems](docs/ce2-paper-reference.md)
 - [Streaming continuous data](docs/continuous-data.md)
+- [Multiresolution CE2 improvement specification](docs/multiresolution-ce2-spec.md)
 - [Continuous multiscale recovery case study](docs/continuous-recovery-case-study.md)
 - [Social-system atlas benchmark](docs/social-system-atlas.md)
 - [RAS3 religion-policy empirical pilot](docs/benchmarks/ras3-religion-policy-pilot.md)

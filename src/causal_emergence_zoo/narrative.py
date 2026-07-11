@@ -15,6 +15,7 @@ from collections.abc import Hashable, Iterable, Sequence
 from typing import Any
 
 from causal_emergence_zoo.ce2 import discover_ce2_path
+from causal_emergence_zoo.approximate import approximate_ce2_path
 from causal_emergence_zoo.estimation import (
     State,
     Trajectory,
@@ -35,6 +36,9 @@ def narrate_tpm(
     gain_tolerance: float = 1e-12,
     edge_probability_threshold: float = 0.0,
     top_k: int = 10,
+    search_mode: str = "exact",
+    beam_width: int = 20,
+    branching_factor: int = 4,
     source: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a CE 2.0 narrative graph from a supplied finite Markov TPM.
@@ -48,14 +52,12 @@ def narrate_tpm(
 
     metrics = compute_metrics(tpm)
     labels = _resolve_labels(len(tpm), state_labels)
-    ce2 = discover_ce2_path(
-        tpm,
-        max_exhaustive_states=max_exhaustive_states,
-        consistency_horizon=consistency_horizon,
-        consistency_tolerance=consistency_tolerance,
-        gain_tolerance=gain_tolerance,
-        top_k=top_k,
-    )
+    if search_mode == "exact":
+        ce2 = discover_ce2_path(tpm, max_exhaustive_states=max_exhaustive_states, consistency_horizon=consistency_horizon, consistency_tolerance=consistency_tolerance, gain_tolerance=gain_tolerance, top_k=top_k)
+    elif search_mode == "beam":
+        ce2 = approximate_ce2_path(tpm, beam_width=beam_width, branching_factor=branching_factor, consistency_horizon=consistency_horizon, consistency_tolerance=consistency_tolerance)
+    else:
+        raise ValueError("search_mode must be 'exact' or 'beam'.")
     model = {
         "kind": "provided_transition_model",
         "state_labels": labels,

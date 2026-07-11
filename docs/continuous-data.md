@@ -120,6 +120,22 @@ test for this Markov workflow.
 
 ## Interpretation Boundaries
 
+## Approximate Larger State Models
+
+Exact CE2 search is retained for 2–8 learned microstates. For 9–32 microstates,
+request bounded dynamically-consistent beam search explicitly:
+
+```bash
+cez narrate-continuous observations.csv \
+  --feature temperature --feature pressure \
+  --trajectory-column session --time-column time \
+  --microstates 16 --search-mode beam --beam-width 20 --branching-factor 4
+```
+
+This result is a best sampled hierarchy, not a global partition optimum. Use the
+multiresolution workflow specified in `multiresolution-ce2-spec.md` before
+interpreting a larger learned state budget as a substantive scale.
+
 The final narrative contains the encoder, state support, quantization error,
 source signature, and a continuous-discretization caveat on every claim. Treat
 the result as a model-derived multiscale pattern conditional on:

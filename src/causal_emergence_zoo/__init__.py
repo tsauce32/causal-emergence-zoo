@@ -17,6 +17,7 @@ from causal_emergence_zoo.continuous import (
     fit_continuous_csv_encoder,
     fit_continuous_state_encoder,
 )
+from causal_emergence_zoo.multiresolution import analyze_continuous_multiresolution_csv
 from causal_emergence_zoo.partitions import enumerate_partitions
 from causal_emergence_zoo.hierarchy import build_causal_hierarchy
 from causal_emergence_zoo.synthetic import generate_two_block_continuous_csv
@@ -39,6 +40,7 @@ from causal_emergence_zoo.validation import validate_system
 __all__ = [
     "analyze_ce2_path",
     "analyze_continuous_csv",
+    "analyze_continuous_multiresolution_csv",
     "analyze_trajectories",
     "approximate_ce2_path",
     "available_systems",

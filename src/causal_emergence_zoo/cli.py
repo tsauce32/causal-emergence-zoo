@@ -475,6 +475,9 @@ def narrate_continuous_csv(args: argparse.Namespace) -> int:
         gain_tolerance=args.gain_tolerance,
         edge_probability_threshold=args.edge_threshold,
         top_k=args.top_k,
+        search_mode=args.search_mode,
+        beam_width=args.beam_width,
+        branching_factor=args.branching_factor,
     )
     serialized = json.dumps(result, indent=2, allow_nan=False)
     if args.output:
@@ -558,7 +561,10 @@ def build_parser() -> argparse.ArgumentParser:
     continuous_parser.add_argument("--trajectory-column", help="Contiguous trajectory/group identifier column.")
     continuous_parser.add_argument("--time-column", help="Strictly increasing numeric time column within each grouped trajectory.")
     continuous_parser.add_argument("--row-order-is-time", action="store_true", help="Explicitly declare file row order as temporal when no time column is available.")
-    continuous_parser.add_argument("--microstates", type=int, default=8, help="Learned discrete microstates (2-8 for exact CE 2.0).")
+    continuous_parser.add_argument("--microstates", type=int, default=8, help="Learned discrete microstates (2-8 exact; 9-32 with beam or auto search).")
+    continuous_parser.add_argument("--search-mode", choices=["exact", "beam", "auto"], default="exact", help="CE2 search: exact (default), bounded beam, or auto-select by state count.")
+    continuous_parser.add_argument("--beam-width", type=int, default=20, help="Active paths retained by approximate beam search.")
+    continuous_parser.add_argument("--branching-factor", type=int, default=4, help="Consistent merges retained per active approximate path.")
     continuous_parser.add_argument("--reservoir-size", type=int, default=10_000, help="Maximum continuous observations retained during encoder fitting.")
     continuous_parser.add_argument("--seed", type=int, default=0, help="Random seed for reservoir sampling and k-means initialization.")
     continuous_parser.add_argument("--max-iterations", type=int, default=50, help="Maximum Lloyd k-means iterations on the reservoir.")

@@ -27,6 +27,7 @@ from causal_emergence_zoo.narrative import narrate_tpm
 
 
 MAX_EXACT_MICROSTATES = 8
+MAX_APPROXIMATE_MICROSTATES = 32
 
 
 def fit_continuous_state_encoder(
@@ -371,6 +372,9 @@ def analyze_continuous_csv(
     gain_tolerance: float = 1e-12,
     edge_probability_threshold: float = 0.0,
     top_k: int = 10,
+    search_mode: str = "exact",
+    beam_width: int = 20,
+    branching_factor: int = 4,
 ) -> dict[str, Any]:
     """Run a two-pass, bounded-memory continuous CSV CE 2.0 analysis.
 
@@ -379,9 +383,13 @@ def analyze_continuous_csv(
     than rediscovering a new one. This prevents the same data from both selecting
     and validating a narrative.
     """
-    if microstate_count > MAX_EXACT_MICROSTATES:
+    if search_mode not in {"exact", "beam", "auto"}:
+        raise ValueError("search_mode must be 'exact', 'beam', or 'auto'.")
+    resolved_search_mode = "exact" if search_mode == "auto" and microstate_count <= MAX_EXACT_MICROSTATES else ("beam" if search_mode == "auto" else search_mode)
+    maximum = MAX_EXACT_MICROSTATES if resolved_search_mode == "exact" else MAX_APPROXIMATE_MICROSTATES
+    if microstate_count > maximum:
         raise ValueError(
-            f"microstate_count must be at most {MAX_EXACT_MICROSTATES} for exact CE 2.0 search."
+            f"microstate_count must be at most {maximum} for {resolved_search_mode} CE 2.0 search."
         )
     if microstate_count < 2:
         raise ValueError("microstate_count must be at least 2 for continuous CE 2.0 analysis.")
@@ -439,6 +447,9 @@ def analyze_continuous_csv(
         gain_tolerance=gain_tolerance,
         edge_probability_threshold=edge_probability_threshold,
         top_k=top_k,
+        search_mode=resolved_search_mode,
+        beam_width=beam_width,
+        branching_factor=branching_factor,
         source=source,
     )
     selected_path = [step["blocks"] for step in narrative["ce2"]["path"]]
@@ -458,6 +469,7 @@ def analyze_continuous_csv(
     )
 
     narrative["analysis_type"] = "ce2_multiscale_discretized_continuous"
+    narrative["search"] = {"mode": resolved_search_mode, "beam_width": beam_width if resolved_search_mode == "beam" else None, "branching_factor": branching_factor if resolved_search_mode == "beam" else None}
     narrative["input_model"].update(
         {
             "transition_counts": selection_estimate["transition_counts"],
