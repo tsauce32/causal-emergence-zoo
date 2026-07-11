@@ -120,6 +120,21 @@ print(result["best_partition"]["blocks"])
 print(result["best_partition"]["deltaCP"])
 ```
 
+## Guided Exploration
+
+For an unfamiliar grouped numeric CSV, generate a documented plan, full JSON
+result, and self-contained report with SVG charts:
+
+```bash
+cez explore observations.csv \
+  --entity session --time time \
+  --report report.html --output result.json
+```
+
+The report includes resolution response, state support, macro dynamics,
+feature-grounded state descriptions, and validation evidence. See the
+[guided exploration guide](docs/guided-exploration.md).
+
 ## Experimental CE 2.0 Narrative Workflow
 
 For small discrete trajectory datasets, the package can estimate a first-order
@@ -199,6 +214,7 @@ Benchmark fixtures are package data. A normal wheel install can load them with `
 - [Hoel CE 2.0 paper reference systems](docs/ce2-paper-reference.md)
 - [Streaming continuous data](docs/continuous-data.md)
 - [Multiresolution CE2 improvement specification](docs/multiresolution-ce2-spec.md)
+- [Guided exploration and HTML reports](docs/guided-exploration.md)
 - [Continuous multiscale recovery case study](docs/continuous-recovery-case-study.md)
 - [Social-system atlas benchmark](docs/social-system-atlas.md)
 - [RAS3 religion-policy empirical pilot](docs/benchmarks/ras3-religion-policy-pilot.md)

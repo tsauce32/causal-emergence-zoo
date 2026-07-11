@@ -27,6 +27,8 @@ from causal_emergence_zoo.social_atlas import (
     write_social_atlas_csv,
 )
 from causal_emergence_zoo.temporal import derive_temporal_features, temporal_feature_names
+from causal_emergence_zoo.explore import explore_csv, profile_csv, recommend_analysis_plan, write_exploration_json
+from causal_emergence_zoo.report import render_exploration_report
 from causal_emergence_zoo.paper_systems import (
     ce2_paper_reference_values,
     figure2_equivalence_class_tpm,
@@ -55,6 +57,7 @@ __all__ = [
     "count_continuous_csv_transitions",
     "discover_ce2_path",
     "derive_temporal_features",
+    "explore_csv",
     "enumerate_partitions",
     "estimate_tpm_from_trajectories",
     "estimate_tpm_from_transition_counts",
@@ -72,7 +75,11 @@ __all__ = [
     "load_country_year_source",
     "load_system",
     "narrate_tpm",
+    "profile_csv",
+    "recommend_analysis_plan",
+    "render_exploration_report",
     "write_social_atlas_csv",
+    "write_exploration_json",
     "validate_system",
     "temporal_feature_names",
 ]

@@ -13,6 +13,7 @@ from typing import Any
 from jsonschema import Draft202012Validator
 
 from causal_emergence_zoo.continuous import analyze_continuous_csv
+from causal_emergence_zoo.explore import explore_csv, write_exploration_json
 from causal_emergence_zoo.io import available_systems, load_system
 from causal_emergence_zoo.narrative import analyze_trajectories
 from causal_emergence_zoo.search import branching_greedy_search
@@ -504,6 +505,33 @@ def narrate_continuous_csv(args: argparse.Namespace) -> int:
     return 0
 
 
+def explore_dataset(args: argparse.Namespace) -> int:
+    """Profile an unfamiliar CSV and produce a guided HTML exploration."""
+    result = explore_csv(
+        args.csv_path,
+        entity=args.entity,
+        time=args.time,
+        features=args.features,
+        resolutions=args.resolutions,
+        seeds=args.seeds or (0,),
+        report_path=args.report,
+    )
+    if args.output:
+        write_exploration_json(result, args.output)
+    if args.json:
+        print(json.dumps(result, indent=2, allow_nan=False))
+    else:
+        profile = result["profile"]
+        analysis = result["analysis"]
+        print(f"profiled {profile['row_count']} rows across {profile['trajectory_count']} trajectories")
+        print(f"profile: {analysis['profile']['classification'].replace('_', ' ')}")
+        if args.report:
+            print(f"wrote HTML report: {args.report}")
+        if args.output:
+            print(f"wrote JSON result: {args.output}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cez",
@@ -590,6 +618,18 @@ def build_parser() -> argparse.ArgumentParser:
     continuous_parser.add_argument("--json", action="store_true", help="Print only the JSON analysis to stdout.")
     continuous_parser.add_argument("--output", help="Optional file path for the JSON analysis.")
     continuous_parser.set_defaults(func=narrate_continuous_csv)
+
+    explore_parser = subparsers.add_parser("explore", help="Profile a grouped numeric CSV, run guided multiresolution CE2, and write an HTML report.")
+    explore_parser.add_argument("csv_path")
+    explore_parser.add_argument("--entity", help="Trajectory/entity column; inferred from common names when omitted.")
+    explore_parser.add_argument("--time", help="Numeric time column; inferred from common names when omitted.")
+    explore_parser.add_argument("--feature", dest="features", action="append", help="Numeric feature to include; repeat or omit for all complete numeric features.")
+    explore_parser.add_argument("--resolution", dest="resolutions", type=int, action="append", help="Learned state resolution; repeat or omit for recommendations.")
+    explore_parser.add_argument("--seed", dest="seeds", type=int, action="append", default=None, help="Encoder seed; repeat for replication.")
+    explore_parser.add_argument("--report", default="cez-report.html", help="Self-contained HTML report path.")
+    explore_parser.add_argument("--output", default="cez-result.json", help="Full JSON result path.")
+    explore_parser.add_argument("--json", action="store_true", help="Also print the JSON result.")
+    explore_parser.set_defaults(func=explore_dataset)
 
     return parser
 
