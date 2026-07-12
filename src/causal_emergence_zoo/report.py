@@ -1,31 +1,84 @@
-"""Dependency-free self-contained HTML reports for guided exploration."""
+"""Self-contained, inspectable HTML reports for guided CE2 exploration."""
 from __future__ import annotations
 
 import html
+import json
 from pathlib import Path
 from typing import Any
 
 
 def render_exploration_report(exploration: dict[str, Any]) -> str:
-    profile, plan, analysis = exploration["profile"], exploration["plan"], exploration["analysis"]
-    best = max(analysis["resolution_runs"], key=lambda run: (run["endpoint_cp_gain"], -run["resolution"]))
+    """Render a portable report with local interaction and claim-level evidence.
+
+    No information is fetched after the file is opened.  The report deliberately
+    lets readers inspect evidence, uncertainty, and counterevidence before
+    treating the deterministic prose as a narrative conclusion.
+    """
+    profile, plan, analysis = (
+        exploration["profile"],
+        exploration["plan"],
+        exploration["analysis"],
+    )
+    best = max(
+        analysis["resolution_runs"],
+        key=lambda run: (run["endpoint_cp_gain"], -run["resolution"], -run["seed"]),
+    )
     graph = best["result"]
-    gains = [(row["resolution"], row["mean_endpoint_cp_gain"]) for row in analysis["per_resolution"]]
+    gains = [
+        (row["resolution"], row["mean_endpoint_cp_gain"])
+        for row in analysis["per_resolution"]
+    ]
     support = graph["state_support"]["observation_counts"]
     macro_tpm = graph["ce2"]["endpoint"]["macro_tpm"]
     states = exploration["state_descriptions"][0]["states"]
     title = Path(profile["source"]["path"]).name
-    return f"""<!doctype html><html><head><meta charset='utf-8'><title>CE2 exploration report</title>
+    ledger = graph.get("evidence_ledger", {"claims": []})
+    report_data = _report_data(analysis, best, graph, ledger)
+    initial_claim = ledger.get("claims", [None])[0]
+
+    return f"""<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>CE2 exploration report</title>
 <style>{_CSS}</style></head><body><main>
 <header><p class='eyebrow'>CAUSAL EMERGENCE EXPLORATION</p><h1>{html.escape(title)}</h1><p>Evidence-linked, model-derived analysis. This report does not independently identify real-world interventions.</p></header>
 <section class='grid'>{_card('Rows', profile['row_count'])}{_card('Trajectories', profile['trajectory_count'])}{_card('Profile', analysis['profile']['classification'].replace('_',' '))}{_card('Best CE gain', f"{best['endpoint_cp_gain']:.5f}")}</section>
 <section><h2>Analysis plan</h2><p><b>Entity:</b> {html.escape(str(plan['entity_column']))} &nbsp; <b>Time:</b> {html.escape(str(plan['time_column']))}</p><p><b>Features:</b> {html.escape(', '.join(plan['feature_columns']))}</p><p><b>Resolutions:</b> {', '.join(map(str, plan['resolutions']))} &nbsp; <b>Seeds:</b> {', '.join(map(str, plan['encoder_seeds']))}</p></section>
-<section class='two'><div><h2>CE by resolution</h2>{_line_chart(gains)}</div><div><h2>State support</h2>{_bar_chart(support)}</div></section>
-<section class='two'><div><h2>Selected macro dynamics</h2>{_heatmap(macro_tpm)}</div><div><h2>Selected hierarchy</h2><p>{html.escape(graph['narrative_text'])}</p><dl><dt>Endpoint</dt><dd>{html.escape(best['endpoint_partition_id'])}</dd><dt>Macro states</dt><dd>{best['endpoint_macro_state_count']}</dd><dt>Search</dt><dd>{html.escape(str(graph['search']['mode']))}</dd></dl></div></section>
+<section class='two'><div><h2>CE by resolution</h2>{_line_chart(gains)}<div class='control-row' aria-label='Select a run'>{_run_buttons(analysis['resolution_runs'], best)}</div><p id='run-detail' class='detail' aria-live='polite'>{_run_summary(best)}</p></div><div><h2>State support</h2>{_bar_chart(support)}</div></section>
+<section class='two'><div><h2>Selected macro dynamics</h2>{_heatmap(macro_tpm)}<p id='transition-detail' class='detail' aria-live='polite'>Select a macro transition to inspect its model probability and observed support.</p></div><div><h2>Selected hierarchy</h2><p>{html.escape(graph['narrative_text'])}</p><dl><dt>Endpoint</dt><dd>{html.escape(best['endpoint_partition_id'])}</dd><dt>Macro states</dt><dd>{best['endpoint_macro_state_count']}</dd><dt>Search</dt><dd>{html.escape(str(graph['search']['mode']))}</dd></dl></div></section>
+<section><h2>Narrative claims and evidence</h2><p class='muted'>Select a claim to inspect its measured state support, transition support, uncertainty checks, caveats, and counterevidence.</p><div class='claim-layout'><div class='claim-list' role='list'>{_claim_buttons(ledger.get('claims', []))}</div><article id='claim-detail' class='claim-detail' aria-live='polite'>{_claim_detail(initial_claim)}</article></div></section>
 <section><h2>Learned state descriptions</h2><div class='state-grid'>{''.join(_state_card(state) for state in states)}</div></section>
 <section><h2>Validation and limitations</h2>{_validation(graph)}<ul>{''.join(f'<li>{html.escape(item)}</li>' for item in analysis['limitations'])}</ul></section>
-<footer>Generated by causal-emergence-zoo · Reproducible parameters are embedded in the companion JSON result.</footer>
-</main></body></html>"""
+<footer>Generated by causal-emergence-zoo &middot; Reproducible parameters and the full evidence ledger are embedded in the companion JSON result.</footer>
+</main><script id='cez-report-data' type='application/json'>{_safe_json(report_data)}</script><script>{_SCRIPT}</script></body></html>"""
+
+
+def _report_data(
+    analysis: dict[str, Any],
+    best: dict[str, Any],
+    graph: dict[str, Any],
+    ledger: dict[str, Any],
+) -> dict[str, Any]:
+    runs = []
+    for run in analysis["resolution_runs"]:
+        support = run.get("support", {})
+        runs.append(
+            {
+                "id": _run_id(run),
+                "resolution": run["resolution"],
+                "seed": run["seed"],
+                "status": run["status"],
+                "endpoint_partition_id": run["endpoint_partition_id"],
+                "endpoint_macro_state_count": run["endpoint_macro_state_count"],
+                "endpoint_cp_gain": run["endpoint_cp_gain"],
+                "support_ok": support.get("is_adequately_supported"),
+                "under_supported_state_indices": support.get("under_supported_state_indices", []),
+            }
+        )
+    return {
+        "best_run_id": _run_id(best),
+        "runs": runs,
+        "claims": ledger.get("claims", []),
+        "macro_tpm": graph["ce2"]["endpoint"]["macro_tpm"],
+        "endpoint_partition_id": graph["ce2"]["endpoint"]["partition_id"],
+    }
 
 
 def _card(label: str, value: Any) -> str:
@@ -33,49 +86,225 @@ def _card(label: str, value: Any) -> str:
 
 
 def _line_chart(points: list[tuple[int, float]]) -> str:
-    width, height, pad = 520, 230, 35
-    max_y = max([value for _, value in points] + [0.001])
+    width, height, pad = 520, 250, 42
+    max_abs = max([abs(value) for _, value in points] + [0.001])
+    baseline = height / 2
     coords = []
     for index, (_, value) in enumerate(points):
         x = pad + index * ((width - 2 * pad) / max(1, len(points) - 1))
-        y = height - pad - value / max_y * (height - 2 * pad)
+        y = baseline - value / max_abs * (baseline - pad)
         coords.append((x, y, value))
-    path = ' '.join(f"{x:.1f},{y:.1f}" for x, y, _ in coords)
-    labels = ''.join(f"<text x='{x:.1f}' y='{height-10}' text-anchor='middle'>K{points[i][0]}</text><circle cx='{x:.1f}' cy='{y:.1f}' r='5'/><text x='{x:.1f}' y='{y-10:.1f}' text-anchor='middle'>{value:.3f}</text>" for i, (x, y, value) in enumerate(coords))
-    return f"<svg viewBox='0 0 {width} {height}' role='img'><line x1='{pad}' y1='{height-pad}' x2='{width-pad}' y2='{height-pad}'/><polyline points='{path}'/>{labels}</svg>"
+    path = " ".join(f"{x:.1f},{y:.1f}" for x, y, _ in coords)
+    labels = "".join(
+        f"<g><circle cx='{x:.1f}' cy='{y:.1f}' r='5'/><text x='{x:.1f}' y='{height-12}' text-anchor='middle'>K{points[index][0]}</text><text x='{x:.1f}' y='{y-12:.1f}' text-anchor='middle'>{value:.3f}</text></g>"
+        for index, (x, y, value) in enumerate(coords)
+    )
+    return (
+        f"<svg class='response-chart' viewBox='0 0 {width} {height}' role='img' "
+        "aria-labelledby='response-chart-title response-chart-desc'>"
+        "<title id='response-chart-title'>Endpoint causal-power gain by state resolution</title>"
+        "<desc id='response-chart-desc'>Positive values are above the zero line; "
+        "the chart is paired with selectable run details below.</desc>"
+        f"<line x1='{pad}' y1='{baseline:.1f}' x2='{width-pad}' y2='{baseline:.1f}'/>"
+        f"<line x1='{pad}' y1='{pad}' x2='{pad}' y2='{height-pad}'/>"
+        f"<polyline points='{path}'/>{labels}<text x='8' y='{pad}' "
+        "class='axis-label'>CP gain</text></svg>"
+    )
 
 
 def _bar_chart(values: list[int]) -> str:
     width, height, pad = 520, 230, 30
-    maximum = max(values + [1]); bar = (width - 2 * pad) / len(values)
-    shapes = ''.join(f"<rect x='{pad+i*bar+4:.1f}' y='{height-pad-v/maximum*(height-2*pad):.1f}' width='{bar-8:.1f}' height='{v/maximum*(height-2*pad):.1f}'/><text x='{pad+(i+.5)*bar:.1f}' y='{height-10}' text-anchor='middle'>S{i}</text>" for i, v in enumerate(values))
-    return f"<svg viewBox='0 0 {width} {height}' role='img'>{shapes}</svg>"
+    maximum = max(values + [1])
+    bar = (width - 2 * pad) / max(1, len(values))
+    shapes = "".join(
+        f"<g><rect x='{pad+i*bar+4:.1f}' y='{height-pad-v/maximum*(height-2*pad):.1f}' width='{max(1, bar-8):.1f}' height='{v/maximum*(height-2*pad):.1f}'/><text x='{pad+(i+.5)*bar:.1f}' y='{height-10}' text-anchor='middle'>S{i}</text><text x='{pad+(i+.5)*bar:.1f}' y='{max(16, height-pad-v/maximum*(height-2*pad)-7):.1f}' text-anchor='middle'>{v}</text></g>"
+        for i, v in enumerate(values)
+    )
+    return f"<svg class='support-chart' viewBox='0 0 {width} {height}' role='img' aria-labelledby='support-chart-title'><title id='support-chart-title'>Observation support by learned microstate</title>{shapes}</svg>"
 
 
 def _heatmap(matrix: list[list[float]]) -> str:
-    size = len(matrix); cell = 44
+    """Use buttons so every matrix cell is keyboard-inspectable."""
     cells = []
-    for row in range(size):
-        for column in range(size):
-            value = matrix[row][column]; opacity = 0.08 + 0.92 * value
-            cells.append(f"<rect x='{column*cell}' y='{row*cell}' width='{cell}' height='{cell}' style='fill:rgba(32,99,155,{opacity:.3f})'/><text x='{column*cell+cell/2}' y='{row*cell+cell/2+4}' text-anchor='middle'>{value:.2f}</text>")
-    dimension = size * cell
-    return f"<svg class='heatmap' viewBox='0 0 {dimension} {dimension}' role='img'>{''.join(cells)}</svg>"
+    for row_index, row in enumerate(matrix):
+        for column_index, value in enumerate(row):
+            intensity = max(0, min(100, round(value * 100)))
+            cells.append(
+                f"<button type='button' class='matrix-cell' style='--intensity:{intensity}%' data-source='{row_index}' data-target='{column_index}' aria-label='Macro state {row_index} to macro state {column_index}: {value:.4f}'><span>S{row_index}&rarr;S{column_index}</span><strong>{value:.3f}</strong></button>"
+            )
+    return f"<div class='matrix-grid' style='--matrix-size:{max(1, len(matrix))}' role='group' aria-label='Selected macro transition probability matrix'>{''.join(cells)}</div>"
+
+
+def _run_buttons(runs: list[dict[str, Any]], best: dict[str, Any]) -> str:
+    best_id = _run_id(best)
+    return "".join(
+        f"<button type='button' class='run-button' data-run-id='{html.escape(_run_id(run), quote=True)}' aria-pressed='{str(_run_id(run) == best_id).lower()}'>K{run['resolution']} / seed {run['seed']}</button>"
+        for run in runs
+    )
+
+
+def _run_summary(run: dict[str, Any]) -> str:
+    support = run.get("support", {})
+    adequacy = "adequately supported" if support.get("is_adequately_supported", True) else "retained with under-supported states"
+    return html.escape(
+        f"K={run['resolution']}, seed={run['seed']}: {run['status']} with CP gain "
+        f"{run['endpoint_cp_gain']:.6f}; endpoint {run['endpoint_partition_id']} ({adequacy})."
+    )
+
+
+def _run_id(run: dict[str, Any]) -> str:
+    return f"K{run['resolution']}:seed{run['seed']}"
+
+
+def _claim_buttons(claims: list[dict[str, Any]]) -> str:
+    if not claims:
+        return "<p class='muted'>No claim ledger is available for this result.</p>"
+    return "".join(
+        f"<button type='button' class='claim-button' data-claim-id='{html.escape(str(claim['claim_id']), quote=True)}' aria-pressed='{str(index == 0).lower()}'>{html.escape(str(claim.get('claim_type', 'claim')).replace('_', ' '))}</button>"
+        for index, claim in enumerate(claims)
+    )
+
+
+def _claim_detail(claim: dict[str, Any] | None) -> str:
+    if not claim:
+        return "<p class='muted'>No evidence ledger is available for this claim.</p>"
+    sections = [
+        ("Measured evidence", claim.get("supporting_evidence", [])),
+        ("State support", claim.get("state_support", {})),
+        ("Transition support", claim.get("transition_support", {})),
+        ("Uncertainty checks", claim.get("uncertainty", [])),
+        ("Counterevidence to inspect", claim.get("counterevidence", [])),
+        ("Caveats", claim.get("caveats", [])),
+    ]
+    rendered = "".join(
+        f"<details {'open' if index < 2 else ''}><summary>{html.escape(label)}</summary><pre>{html.escape(json.dumps(value, indent=2, allow_nan=False))}</pre></details>"
+        for index, (label, value) in enumerate(sections)
+    )
+    return f"<p class='claim-statement'>{html.escape(str(claim.get('statement', '')))}</p>{rendered}"
 
 
 def _state_card(state: dict[str, Any]) -> str:
     values = sorted(state["centroid"].items(), key=lambda item: item[0])[:4]
-    details = ''.join(f"<li>{html.escape(name)}: {value:.3g}</li>" for name, value in values)
+    details = "".join(f"<li>{html.escape(name)}: {value:.3g}</li>" for name, value in values)
     return f"<article><span>State {state['state_id']}</span><h3>{html.escape(state['label'])}</h3><ul>{details}</ul></article>"
 
 
 def _validation(graph: dict[str, Any]) -> str:
-    predictive = graph["continuous_data"]["predictive_validation"]
-    validation = predictive["validation_micro_tpm"]
-    null = graph["continuous_data"]["transition_null_validation"]
-    validation_text = "not available" if validation["status"] != "defined" else f"mean NLL {validation['mean_negative_log_likelihood']:.4f}"
-    null_text = "not requested" if null["status"] == "not_requested" else f"upper-tail p={null['empirical_upper_tail_probability']:.3f}"
-    return f"<p><b>Held-out prediction:</b> {html.escape(validation_text)} &nbsp; <b>Transition null:</b> {html.escape(null_text)}</p>"
+    continuous = graph.get("continuous_data", {})
+    predictive = continuous.get("predictive_validation", {})
+    validation = predictive.get("validation_micro_tpm", {})
+    transition_null = continuous.get("transition_null_validation", {})
+    trajectory_null = continuous.get("trajectory_time_permutation_validation", {})
+    validation_text = (
+        "not available"
+        if validation.get("status") != "defined"
+        else f"mean NLL {validation['mean_negative_log_likelihood']:.4f}"
+    )
+    if trajectory_null.get("status") == "completed":
+        null_text = _null_text("trajectory shuffle", trajectory_null)
+    elif transition_null.get("status") == "completed":
+        null_text = _null_text("transition-target", transition_null)
+    elif trajectory_null.get("status") == "unavailable":
+        null_text = "trajectory shuffle unavailable"
+    elif transition_null.get("status") == "unavailable":
+        null_text = "transition-target null unavailable"
+    else:
+        null_text = "not requested"
+    robustness = graph.get("robustness", {})
+    if robustness.get("status") == "completed":
+        bootstrap_text = (
+            f"{robustness.get('selected_endpoint_frequency', 0.0):.3f} selected-endpoint frequency"
+        )
+    elif robustness.get("status") == "unavailable":
+        bootstrap_text = "unavailable"
+    else:
+        bootstrap_text = "not requested"
+    return f"<p><b>Held-out prediction:</b> {html.escape(validation_text)} &nbsp; <b>Transition null:</b> {html.escape(null_text)} &nbsp; <b>Resampling:</b> {html.escape(bootstrap_text)}</p>"
 
 
-_CSS = """body{margin:0;background:#f4f1ea;color:#17212b;font:15px/1.55 system-ui,sans-serif}main{max-width:1120px;margin:auto;padding:48px 28px}header{border-bottom:3px solid #17212b;margin-bottom:28px}h1{font:700 44px Georgia,serif;margin:0 0 12px}h2{font:700 25px Georgia,serif}.eyebrow{color:#a34b2b;letter-spacing:.15em;font-weight:700}.grid,.two,.state-grid{display:grid;gap:18px}.grid{grid-template-columns:repeat(4,1fr)}.two{grid-template-columns:1fr 1fr}.state-grid{grid-template-columns:repeat(3,1fr)}section{background:#fff;padding:24px;margin:18px 0;border:1px solid #d7d1c5}.card span,.state-grid article>span{display:block;color:#68737d;text-transform:uppercase;font-size:12px;letter-spacing:.08em}.card strong{font:700 27px Georgia,serif}.state-grid article{border-left:4px solid #20639b;padding:12px;background:#f7f9fb}.state-grid h3{margin:4px 0}svg{width:100%;max-height:260px}svg line{stroke:#9aa4ad}svg polyline{fill:none;stroke:#a34b2b;stroke-width:4}svg circle,svg rect{fill:#20639b}svg text{font-size:12px;fill:#17212b}.heatmap text{fill:#111;font-size:10px}dt{font-weight:700}footer{color:#68737d;margin-top:30px}@media(max-width:760px){.grid,.two,.state-grid{grid-template-columns:1fr 1fr}}"""
+def _null_text(label: str, result: dict[str, Any]) -> str:
+    probability = result.get("empirical_upper_tail_probability")
+    if isinstance(probability, (int, float)):
+        return f"{label} upper-tail p={probability:.3f}"
+    return f"{label} completed without a finite p-value"
+
+
+def _safe_json(value: Any) -> str:
+    """Prevent a data string from closing the embedded JSON script element."""
+    return json.dumps(value, allow_nan=False, separators=(",", ":")).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+
+
+_SCRIPT = r"""
+(() => {
+  const dataElement = document.getElementById('cez-report-data');
+  if (!dataElement) return;
+  const data = JSON.parse(dataElement.textContent);
+  const byClaimId = new Map(data.claims.map((claim) => [claim.claim_id, claim]));
+  const byRunId = new Map(data.runs.map((run) => [run.id, run]));
+  const claimDetail = document.getElementById('claim-detail');
+  const runDetail = document.getElementById('run-detail');
+  const transitionDetail = document.getElementById('transition-detail');
+
+  const pretty = (value) => JSON.stringify(value, null, 2);
+  const section = (title, value, open) => {
+    const details = document.createElement('details');
+    details.open = open;
+    const summary = document.createElement('summary');
+    summary.textContent = title;
+    const pre = document.createElement('pre');
+    pre.textContent = pretty(value);
+    details.append(summary, pre);
+    return details;
+  };
+  const renderClaim = (claim) => {
+    if (!claimDetail || !claim) return;
+    claimDetail.replaceChildren();
+    const statement = document.createElement('p');
+    statement.className = 'claim-statement';
+    statement.textContent = claim.statement || 'No statement was supplied.';
+    claimDetail.append(statement);
+    [
+      ['Measured evidence', claim.supporting_evidence, true],
+      ['State support', claim.state_support, true],
+      ['Transition support', claim.transition_support, false],
+      ['Uncertainty checks', claim.uncertainty, false],
+      ['Counterevidence to inspect', claim.counterevidence, false],
+      ['Caveats', claim.caveats, false],
+    ].forEach(([title, value, open]) => claimDetail.append(section(title, value, open)));
+  };
+  const renderRun = (run) => {
+    if (!runDetail || !run) return;
+    const support = run.support_ok ? 'adequately supported' : 'retained with under-supported states';
+    runDetail.textContent = `K=${run.resolution}, seed=${run.seed}: ${run.status} with CP gain ${Number(run.endpoint_cp_gain).toFixed(6)}; endpoint ${run.endpoint_partition_id} (${support}).`;
+  };
+  document.querySelectorAll('[data-claim-id]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const claim = byClaimId.get(button.dataset.claimId);
+      renderClaim(claim);
+      document.querySelectorAll('[data-claim-id]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+    });
+  });
+  document.querySelectorAll('[data-run-id]').forEach((button) => {
+    button.addEventListener('click', () => {
+      renderRun(byRunId.get(button.dataset.runId));
+      document.querySelectorAll('[data-run-id]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+    });
+  });
+  document.querySelectorAll('[data-source][data-target]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const source = Number(button.dataset.source);
+      const target = Number(button.dataset.target);
+      const probability = data.macro_tpm[source][target];
+      const matching = data.claims.find((claim) => {
+        const support = claim.transition_support || {};
+        return support.macro_source === source && support.macro_target === target;
+      });
+      const support = matching ? matching.transition_support.observed_transition_count : null;
+      transitionDetail.textContent = `Macro state ${source} to ${target}: model probability ${Number(probability).toFixed(6)}${support === null || support === undefined ? '; observed count unavailable.' : `; observed fitted-state transition count ${support}.`}`;
+    });
+  });
+})();
+"""
+
+
+_CSS = """body{margin:0;background:#f4f1ea;color:#17212b;font:15px/1.55 system-ui,sans-serif}main{max-width:1120px;margin:auto;padding:48px 28px}header{border-bottom:3px solid #17212b;margin-bottom:28px}h1{font:700 44px Georgia,serif;margin:0 0 12px}h2{font:700 25px Georgia,serif}.eyebrow{color:#a34b2b;letter-spacing:.15em;font-weight:700}.grid,.two,.state-grid,.claim-layout{display:grid;gap:18px}.grid{grid-template-columns:repeat(4,1fr)}.two{grid-template-columns:1fr 1fr}.state-grid{grid-template-columns:repeat(3,1fr)}.claim-layout{grid-template-columns:minmax(175px,.35fr) minmax(0,1fr)}section{background:#fff;padding:24px;margin:18px 0;border:1px solid #d7d1c5}.card span,.state-grid article>span{display:block;color:#68737d;text-transform:uppercase;font-size:12px;letter-spacing:.08em}.card strong{font:700 27px Georgia,serif}.state-grid article{border-left:4px solid #20639b;padding:12px;background:#f7f9fb}.state-grid h3{margin:4px 0}svg{width:100%;max-height:260px}.response-chart line{stroke:#9aa4ad}.response-chart polyline{fill:none;stroke:#a34b2b;stroke-width:4}.response-chart circle{fill:#a34b2b}.support-chart rect{fill:#20639b}.response-chart text,.support-chart text{font-size:12px;fill:#17212b}.axis-label{font-size:11px}.control-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.run-button,.claim-button,.matrix-cell{font:inherit;border:1px solid #aab4bc;background:#fff;color:#17212b;cursor:pointer}.run-button,.claim-button{padding:7px 9px;text-align:left}.run-button[aria-pressed=true],.claim-button[aria-pressed=true]{background:#20639b;color:#fff;border-color:#20639b}.detail{min-height:2.5em;background:#f7f9fb;padding:10px;border-left:3px solid #20639b}.matrix-grid{display:grid;grid-template-columns:repeat(var(--matrix-size),minmax(0,1fr));gap:4px}.matrix-cell{min-height:58px;padding:6px;background:linear-gradient(135deg,rgba(32,99,155,calc(var(--intensity) / 100)) 0%,rgba(32,99,155,calc(var(--intensity) / 100)) 100%);display:flex;flex-direction:column;justify-content:center}.matrix-cell span{font-size:11px}.matrix-cell strong{font-size:16px}.claim-list{display:flex;flex-direction:column;gap:6px}.claim-detail{background:#f7f9fb;padding:16px;border-left:4px solid #a34b2b;min-width:0}.claim-statement{font-weight:700;margin-top:0}.claim-detail details{margin:10px 0}.claim-detail summary{cursor:pointer;font-weight:700}.claim-detail pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#fff;padding:10px;border:1px solid #d7d1c5;font-size:12px}.muted{color:#68737d}dt{font-weight:700}footer{color:#68737d;margin-top:30px}button:focus-visible{outline:3px solid #a34b2b;outline-offset:2px}@media(max-width:760px){main{padding:28px 16px}.grid,.two,.state-grid,.claim-layout{grid-template-columns:1fr 1fr}.claim-list{grid-column:1/-1;flex-direction:row;flex-wrap:wrap}}@media(max-width:480px){.grid,.two,.state-grid,.claim-layout{grid-template-columns:1fr}.matrix-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}"""

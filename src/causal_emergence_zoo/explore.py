@@ -1,8 +1,6 @@
-"""Guided, one-call exploration for grouped numeric CSV datasets."""
+"""Guided, one-call exploration for grouped numeric tabular datasets."""
 from __future__ import annotations
 
-import csv
-import gzip
 import json
 import math
 from collections import Counter
@@ -11,55 +9,68 @@ from typing import Any, Sequence
 
 from causal_emergence_zoo.multiresolution import analyze_continuous_multiresolution_csv
 from causal_emergence_zoo.report import render_exploration_report
+from causal_emergence_zoo.tabular import TabularSource, adapt_continuous_source
 
 
-def profile_csv(path: str | Path, *, entity: str | None = None, time: str | None = None) -> dict[str, Any]:
-    """Inspect a CSV without choosing a causal model."""
-    source = Path(path)
-    opener = gzip.open if source.suffix.lower() == ".gz" else open
-    with opener(source, "rt", encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle)
-        if not reader.fieldnames:
-            raise ValueError("CSV must contain a header.")
-        columns = list(reader.fieldnames)
-        entity = entity or _infer_column(columns, ["trajectory_id", "country_code", "entity", "subject", "session", "id"])
-        time = time or _infer_column(columns, ["time", "year", "timestamp", "step", "cycle"])
-        if entity is not None and entity not in columns:
-            raise ValueError(f"Entity column {entity!r} is not present.")
-        if time is not None and time not in columns:
-            raise ValueError(f"Time column {time!r} is not present.")
-        missing = Counter({column: 0 for column in columns})
-        numeric = {column: True for column in columns if column not in {entity, time}}
-        minimum: dict[str, float] = {}
-        maximum: dict[str, float] = {}
-        trajectories = Counter()
-        row_count = 0
-        for row in reader:
-            row_count += 1
-            trajectory = row.get(entity, "__single__") if entity else "__single__"
-            trajectories[trajectory] += 1
-            for column in columns:
-                raw = (row.get(column) or "").strip()
-                if not raw:
-                    missing[column] += 1
-                    if column in numeric:
-                        numeric[column] = False
-                    continue
+def profile_source(source: Any, *, entity: str | None = None, time: str | None = None) -> dict[str, Any]:
+    """Inspect a CSV/Parquet path or DataFrame without choosing a causal model."""
+    adapted = adapt_continuous_source(source)
+    columns = adapted.column_names()
+    entity = entity or _infer_column(
+        columns, ["trajectory_id", "country_code", "entity", "subject", "session", "id"]
+    )
+    time = time or _infer_column(columns, ["time", "year", "timestamp", "step", "cycle"])
+    if entity is not None and entity not in columns:
+        raise ValueError(f"Entity column {entity!r} is not present.")
+    if time is not None and time not in columns:
+        raise ValueError(f"Time column {time!r} is not present.")
+    missing = Counter({column: 0 for column in columns})
+    numeric = {column: True for column in columns if column not in {entity, time}}
+    minimum: dict[str, float] = {}
+    maximum: dict[str, float] = {}
+    trajectories = Counter()
+    row_count = 0
+    for row in adapted.iter_rows(columns):
+        row_count += 1
+        trajectory = _value_text(row.get(entity)) if entity else "__single__"
+        trajectories[trajectory or "__missing_entity__"] += 1
+        for column in columns:
+            raw = _value_text(row.get(column))
+            if not raw:
+                missing[column] += 1
                 if column in numeric:
-                    try:
-                        value = float(raw)
-                        if not math.isfinite(value):
-                            raise ValueError
-                        minimum[column] = min(minimum.get(column, value), value)
-                        maximum[column] = max(maximum.get(column, value), value)
-                    except ValueError:
-                        numeric[column] = False
+                    numeric[column] = False
+                continue
+            if column in numeric:
+                try:
+                    value = float(raw)
+                    if not math.isfinite(value):
+                        raise ValueError
+                    minimum[column] = min(minimum.get(column, value), value)
+                    maximum[column] = max(maximum.get(column, value), value)
+                except (TypeError, ValueError):
+                    numeric[column] = False
     numeric_features = [column for column, is_numeric in numeric.items() if is_numeric and missing[column] == 0]
     lengths = sorted(trajectories.values())
+    descriptor = adapted.descriptor()
+    signature = adapted.source_signature()
+    warnings = (
+        (["No entity column was inferred; the file will be treated as one trajectory."] if entity is None else [])
+        + (["No numeric time column was inferred; explicit row-order confirmation is required."] if time is None else [])
+        + (["Fewer than two complete numeric feature columns were detected."] if len(numeric_features) < 2 else [])
+    )
+    if not descriptor["bounded_memory"]:
+        warnings.append(
+            "The input is a caller-materialized DataFrame; use a CSV or Parquet path for a bounded-memory two-pass run."
+        )
     return {
         "schema_version": "0.1.0",
         "kind": "causal_emergence.data_profile",
-        "source": {"path": str(source.resolve()), "size_bytes": source.stat().st_size},
+        "source": {
+            "path": _source_label(adapted),
+            "size_bytes": signature.get("size_bytes"),
+            "adapter": descriptor,
+        },
         "row_count": row_count,
         "columns": columns,
         "inferred_roles": {"entity": entity, "time": time, "numeric_features": numeric_features},
@@ -67,8 +78,13 @@ def profile_csv(path: str | Path, *, entity: str | None = None, time: str | None
         "numeric_ranges": {column: [minimum[column], maximum[column]] for column in numeric_features},
         "trajectory_count": len(trajectories),
         "trajectory_length": {"minimum": lengths[0] if lengths else 0, "median": lengths[len(lengths) // 2] if lengths else 0, "maximum": lengths[-1] if lengths else 0},
-        "warnings": (["No entity column was inferred; the file will be treated as one trajectory."] if entity is None else []) + (["No numeric time column was inferred; explicit row-order confirmation is required."] if time is None else []) + (["Fewer than two complete numeric feature columns were detected."] if len(numeric_features) < 2 else []),
+        "warnings": warnings,
     }
+
+
+def profile_csv(source: Any, *, entity: str | None = None, time: str | None = None) -> dict[str, Any]:
+    """Backward-compatible name for :func:`profile_source`."""
+    return profile_source(source, entity=entity, time=time)
 
 
 def recommend_analysis_plan(profile: dict[str, Any], *, features: Sequence[str] | None = None, resolutions: Sequence[int] | None = None, seeds: Sequence[int] = (0,)) -> dict[str, Any]:
@@ -96,12 +112,22 @@ def recommend_analysis_plan(profile: dict[str, Any], *, features: Sequence[str] 
     }
 
 
-def explore_csv(path: str | Path, *, entity: str | None = None, time: str | None = None, features: Sequence[str] | None = None, resolutions: Sequence[int] | None = None, seeds: Sequence[int] = (0,), report_path: str | Path | None = None) -> dict[str, Any]:
-    """Profile, plan, analyze, describe, and optionally render one CSV."""
-    profile = profile_csv(path, entity=entity, time=time)
+def explore(
+    source: Any,
+    *,
+    entity: str | None = None,
+    time: str | None = None,
+    features: Sequence[str] | None = None,
+    resolutions: Sequence[int] | None = None,
+    seeds: Sequence[int] = (0,),
+    report_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Profile, plan, analyze, describe, and optionally render a tabular source."""
+    adapted = adapt_continuous_source(source)
+    profile = profile_source(adapted, entity=entity, time=time)
     plan = recommend_analysis_plan(profile, features=features, resolutions=resolutions, seeds=seeds)
     result = analyze_continuous_multiresolution_csv(
-        path,
+        adapted,
         feature_columns=plan["feature_columns"],
         resolutions=plan["resolutions"],
         encoder_seeds=plan["encoder_seeds"],
@@ -122,6 +148,28 @@ def explore_csv(path: str | Path, *, entity: str | None = None, time: str | None
         destination.write_text(render_exploration_report(exploration), encoding="utf-8")
         exploration["artifacts"] = {"html_report": str(destination.resolve())}
     return exploration
+
+
+def explore_csv(
+    source: Any,
+    *,
+    entity: str | None = None,
+    time: str | None = None,
+    features: Sequence[str] | None = None,
+    resolutions: Sequence[int] | None = None,
+    seeds: Sequence[int] = (0,),
+    report_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Backward-compatible name for :func:`explore`."""
+    return explore(
+        source,
+        entity=entity,
+        time=time,
+        features=features,
+        resolutions=resolutions,
+        seeds=seeds,
+        report_path=report_path,
+    )
 
 
 def describe_states(exploration: dict[str, Any]) -> list[dict[str, Any]]:
@@ -151,3 +199,19 @@ def write_exploration_json(exploration: dict[str, Any], path: str | Path) -> Non
 def _infer_column(columns: Sequence[str], candidates: Sequence[str]) -> str | None:
     lowered = {column.lower(): column for column in columns}
     return next((lowered[candidate] for candidate in candidates if candidate in lowered), None)
+
+
+def _value_text(value: Any) -> str:
+    """Normalize scalar values from CSV and optional DataFrame backends."""
+    if value is None:
+        return ""
+    text = value.strip() if isinstance(value, str) else str(value).strip()
+    return "" if text.lower() in {"", "nan", "<na>", "nat", "none", "null"} else text
+
+
+def _source_label(source: TabularSource) -> str:
+    path = getattr(source, "path", None)
+    if path is not None:
+        return str(Path(path).resolve())
+    adapter = source.descriptor()["adapter"].replace("_", " ")
+    return f"<{adapter}>"

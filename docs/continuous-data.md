@@ -1,8 +1,10 @@
-# Streaming Continuous Data
+# Continuous Tabular Data
 
 The continuous-data workflow is an experimental, bounded-memory bridge to the
-finite-state CE 2.0 implementation. It is designed for a CSV that is too large
-to load into Python at once.
+finite-state CE 2.0 implementation. It is designed for CSV or Parquet paths
+that are too large to load into Python at once. Pandas and Polars DataFrames are
+also accepted for convenience, but are explicitly recorded as caller-materialized
+rather than bounded-memory sources.
 
 It does **not** implement native continuous-state Causal Emergence 2.0. Instead,
 it learns a small, frozen discrete state model from continuous observations, then
@@ -67,6 +69,21 @@ cez narrate-continuous observations.csv \
   --reservoir-size 100000 \
   --seed 7 \
   --json --output continuous-narrative.json
+```
+
+Parquet paths use optional Arrow batch streaming. Install the optional readers
+with `pip install "causal-emergence-zoo[tabular]"`.
+
+```python
+from causal_emergence_zoo import analyze_continuous_csv
+
+result = analyze_continuous_csv(
+    country_year_frame,
+    feature_columns=["poverty_rate", "education_index"],
+    trajectory_column="country_code",
+    time_column="year",
+    microstate_count=8,
+)
 ```
 
 For a single ordered time series, omit `--trajectory-column` and explicitly set
@@ -173,3 +190,22 @@ micro TPM on selection, validation, and all-data transitions. With
 that preserves source outgoing counts and the global target distribution while
 breaking source-target association. This is a transition-level null, not a full
 within-trajectory time shuffle; the result labels that limitation explicitly.
+
+For independent trajectories, opt into the stronger trajectory-respecting
+checks below. They replay the frozen encoder, preserve trajectory membership,
+and materialize complete encoded trajectories for the requested resampling, so
+they are not part of the bounded-memory path.
+
+```bash
+cez narrate-continuous observations.parquet \
+  --feature temperature --feature pressure \
+  --trajectory-column session --time-column time \
+  --microstates 6 \
+  --trajectory-null-replicates 200 --trajectory-null-seed 17 \
+  --grouped-bootstrap-replicates 500 --grouped-bootstrap-seed 19
+```
+
+The trajectory null shuffles state order only within each trajectory; the
+bootstrap resamples complete trajectories and reports percentile intervals for
+endpoint CP and CP gain. Both are stability checks conditional on the frozen
+state encoding, not tests of interventionally identified causation.

@@ -1,6 +1,7 @@
 # Guided exploration and HTML reports
 
-`cez explore` is the plug-and-play entry point for grouped numeric CSV data. It
+`cez explore` is the plug-and-play entry point for grouped numeric CSV, CSV.GZ,
+or Parquet data. It
 profiles the file, proposes a serializable analysis plan, runs bounded
 multiresolution CE2, describes learned states from their distinguishing
 features, and writes a self-contained HTML report.
@@ -28,13 +29,24 @@ The report includes:
 - the selected macro-transition heatmap;
 - deterministic feature-grounded state descriptions;
 - frozen held-out prediction and transition-null status;
+- selectable narrative claims with their supporting states, transitions,
+  uncertainty checks, caveats, and counterevidence;
 - search and interpretation limitations.
 
 “Auto” means a documented recommendation, not an unreported scientific choice.
 The complete profile, plan, encoders, TPMs, hierarchies, evidence, and source
 signature remain in the JSON artifact.
 
-Current scope is grouped numeric CSV or CSV.GZ input. Missing numeric values are
-reported rather than silently imputed. DataFrame, Parquet, and SQL adapters are
-planned as additive input layers over the same profile-plan-analysis contract.
+From Python, the same workflow accepts Pandas or Polars DataFrames as well as
+paths. A DataFrame is marked as caller-materialized (rather than bounded-memory)
+in the result; CSV and Parquet paths retain the two-pass streaming contract.
 
+```python
+from causal_emergence_zoo import explore
+
+result = explore(frame, entity="country_code", time="year")
+```
+
+Install optional readers with `pip install "causal-emergence-zoo[tabular]"`.
+Missing numeric values are reported rather than silently imputed. SQL remains a
+future adapter because its ordering and repeatable-scan contract must be explicit.

@@ -5,16 +5,17 @@ cross-resolution agreement as a CE2 validity condition.
 """
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Sequence
 
 from causal_emergence_zoo.continuous import analyze_continuous_csv
-from causal_emergence_zoo.continuous import _iter_csv_observations, encode_continuous_observation
+from causal_emergence_zoo.continuous import _iter_source_observations, encode_continuous_observation
+from causal_emergence_zoo.empirical_validation import assess_multiresolution_stability
+from causal_emergence_zoo.tabular import adapt_continuous_source
 from causal_emergence_zoo.temporal import derive_temporal_features
 
 
 def analyze_continuous_multiresolution_csv(
-    csv_path: str | Path,
+    csv_path: Any,
     *,
     feature_columns: Sequence[str],
     resolutions: Sequence[int] = (4, 8, 12, 16, 24, 32),
@@ -23,6 +24,7 @@ def analyze_continuous_multiresolution_csv(
     **kwargs: Any,
 ) -> dict[str, Any]:
     """Run declared resolutions and summarize conditional CE2 evidence."""
+    source = adapt_continuous_source(csv_path)
     values = list(resolutions)
     if not values or len(set(values)) != len(values) or any(value < 2 or value > 32 for value in values):
         raise ValueError("resolutions must be unique integers in [2, 32].")
@@ -33,7 +35,7 @@ def analyze_continuous_multiresolution_csv(
     runs = []
     for resolution in values:
         for seed in encoder_seeds:
-            result = analyze_continuous_csv(csv_path, feature_columns=feature_columns, microstate_count=resolution, random_seed=seed, search_mode="auto", **kwargs)
+            result = analyze_continuous_csv(source, feature_columns=feature_columns, microstate_count=resolution, random_seed=seed, search_mode="auto", **kwargs)
             support = result.get("state_support", {"is_adequately_supported": True})
             runs.append({"resolution": resolution, "seed": seed, "status": result["status"], "endpoint_partition_id": result["ce2"]["endpoint"]["partition_id"], "endpoint_macro_state_count": result["ce2"]["endpoint"]["macro_state_count"], "endpoint_cp_gain": result["ce2"]["causal_apportioning"]["endpoint_cp_gain"], "support": support, "search": result.get("search"), "result": result})
     per_resolution = []
@@ -42,15 +44,20 @@ def analyze_continuous_multiresolution_csv(
         gains = [run["endpoint_cp_gain"] for run in selected]
         positive = [run for run in selected if run["status"] == "emergent" and run["support"]["is_adequately_supported"]]
         per_resolution.append({"resolution": resolution, "seed_count": len(selected), "positive_seed_count": len(positive), "positive_seed_frequency": len(positive) / len(selected), "mean_endpoint_cp_gain": sum(gains) / len(gains), "run_ids": [f"K{resolution}:seed{run['seed']}" for run in selected]})
-    anchors = _anchor_vectors(csv_path, feature_columns, kwargs, anchor_observation_count)
+    anchors = _anchor_vectors(source, feature_columns, kwargs, anchor_observation_count)
     comparison = _anchor_comparison(runs, anchors)
     classification = _classify(per_resolution)
-    return {"schema_version": "0.1.0", "kind": "causal_emergence.multiresolution_profile", "resolutions_requested": values, "encoder_seeds": list(encoder_seeds), "resolution_runs": runs, "per_resolution": per_resolution, "comparison": comparison, "profile": {"classification": classification, "classification_is_acceptance_gate": False, "interpretation": _interpretation(classification)}, "limitations": ["Anchor comparison uses raw input observations; enable temporal feature integration before comparing transformed feature models.", "Beam-search results above eight states are best-sampled, not globally optimal."]}
+    return {"schema_version": "0.1.0", "kind": "causal_emergence.multiresolution_profile", "resolutions_requested": values, "encoder_seeds": list(encoder_seeds), "resolution_runs": runs, "per_resolution": per_resolution, "comparison": comparison, "profile": {"classification": classification, "classification_is_acceptance_gate": False, "interpretation": _interpretation(classification)}, "limitations": ["Anchor alignment uses a bounded shared sample of the same transformed observations used by each encoder; it is a stability diagnostic, not a CE2 acceptance gate.", "Beam-search results above eight states are best-sampled, not globally optimal."]}
 
 
-def _anchor_vectors(csv_path: str | Path, feature_columns: Sequence[str], kwargs: dict[str, Any], limit: int) -> list[list[float]]:
+def _anchor_vectors(source: Any, feature_columns: Sequence[str], kwargs: dict[str, Any], limit: int) -> list[list[float]]:
     values = []
-    raw = _iter_csv_observations(Path(csv_path), feature_columns=feature_columns, trajectory_column=kwargs.get("trajectory_column"), time_column=kwargs.get("time_column"))
+    raw = _iter_source_observations(
+        adapt_continuous_source(source),
+        feature_columns=feature_columns,
+        trajectory_column=kwargs.get("trajectory_column"),
+        time_column=kwargs.get("time_column"),
+    )
     for _, _, vector in derive_temporal_features(raw, feature_names=feature_columns, differences=kwargs.get("temporal_differences", ()), volatility_windows=kwargs.get("temporal_volatility_windows", ()), max_gap=kwargs.get("max_gap")):
         values.append(vector)
         if len(values) >= limit:
@@ -65,13 +72,29 @@ def _anchor_comparison(runs: list[dict[str, Any]], anchors: list[list[float]]) -
         blocks = result["ce2"]["endpoint"]["blocks"]
         macro_index = {state: index for index, block in enumerate(blocks) for state in block}
         labels = [macro_index[encode_continuous_observation(result["continuous_data"]["discretizer"], vector)] for vector in anchors]
-        assignments.append((run, labels))
-    pairs = []
-    for index, (left_run, left) in enumerate(assignments):
-        for right_run, right in assignments[index + 1:]:
-            agreement = _coassignment_agreement(left, right)
-            pairs.append({"left": f"K{left_run['resolution']}:seed{left_run['seed']}", "right": f"K{right_run['resolution']}:seed{right_run['seed']}", "pairwise_coassignment_agreement": agreement})
-    return {"anchor_observation_count": len(anchors), "metric": "pairwise_coassignment_agreement", "pairs": pairs}
+        assignments.append(
+            {
+                "run_id": f"K{run['resolution']}:seed{run['seed']}",
+                "resolution": run["resolution"],
+                "seed": run["seed"],
+                "macro_assignments": labels,
+            }
+        )
+    stability = assess_multiresolution_stability(assignments)
+    pairs = [
+        {
+            "left": item["left_run_id"],
+            "right": item["right_run_id"],
+            "pairwise_coassignment_agreement": item["pairwise_coassignment_agreement"],
+        }
+        for item in stability.get("pairwise", [])
+    ]
+    return {
+        "anchor_observation_count": len(anchors),
+        "metric": "pairwise_coassignment_agreement",
+        "pairs": pairs,
+        "stability_alignment": stability,
+    }
 
 
 def _coassignment_agreement(left: list[int], right: list[int]) -> float:

@@ -12,8 +12,6 @@ required by exact partition search.
 
 from __future__ import annotations
 
-import csv
-import gzip
 import hashlib
 import math
 import random
@@ -22,8 +20,10 @@ from pathlib import Path
 from typing import Any
 
 from causal_emergence_zoo.ce2 import analyze_ce2_path
+from causal_emergence_zoo.evidence import attach_evidence_ledger
 from causal_emergence_zoo.estimation import estimate_tpm_from_transition_counts
 from causal_emergence_zoo.narrative import narrate_tpm
+from causal_emergence_zoo.tabular import TabularSource, adapt_continuous_source
 from causal_emergence_zoo.temporal import derive_temporal_features, temporal_feature_names
 
 
@@ -126,7 +126,7 @@ def encode_continuous_observation(encoder: dict[str, Any], observation: Sequence
 
 
 def fit_continuous_csv_encoder(
-    csv_path: str | Path,
+    csv_path: Any,
     *,
     feature_columns: Sequence[str],
     microstate_count: int,
@@ -142,7 +142,12 @@ def fit_continuous_csv_encoder(
     temporal_volatility_windows: Sequence[int] = (),
     max_gap: float | None = None,
 ) -> dict[str, Any]:
-    """Pass 1: stream a grouped CSV and fit a train-only frozen state encoder."""
+    """Pass 1: stream a grouped tabular source and fit a frozen state encoder.
+
+    The historical ``*_csv`` name remains for compatibility. ``csv_path`` may
+    also be a Parquet path, Pandas DataFrame, Polars DataFrame, or a
+    :class:`~causal_emergence_zoo.tabular.TabularSource` adapter.
+    """
     _validate_csv_configuration(
         feature_columns=feature_columns,
         trajectory_column=trajectory_column,
@@ -150,14 +155,14 @@ def fit_continuous_csv_encoder(
         row_order_is_time=row_order_is_time,
         validation_fraction=validation_fraction,
     )
-    path = Path(csv_path)
-    signature_before = _source_signature(path)
+    source = adapt_continuous_source(csv_path)
+    signature_before = source.source_signature()
     row_counts = {"all": 0, "train": 0, "validation": 0}
 
     derived_names = temporal_feature_names(feature_columns, differences=temporal_differences, volatility_windows=temporal_volatility_windows)
     def training_observations() -> Iterator[list[float]]:
-        raw = _iter_csv_observations(
-            path,
+        raw = _iter_source_observations(
+            source,
             feature_columns=feature_columns,
             trajectory_column=trajectory_column,
             time_column=time_column,
@@ -182,9 +187,9 @@ def fit_continuous_csv_encoder(
         random_seed=random_seed,
         max_iterations=max_iterations,
     )
-    signature_after = _source_signature(path)
+    signature_after = source.source_signature()
     if signature_after != signature_before:
-        raise ValueError("CSV source changed while fitting the continuous encoder; rerun on a stable file.")
+        raise ValueError("Continuous source changed while fitting the encoder; rerun on a stable source.")
 
     encoder.update(
         {
@@ -196,6 +201,7 @@ def fit_continuous_csv_encoder(
                 "time_column": time_column,
                 "ordering_assurance": "caller_declared_grouped_by_trajectory",
                 "row_order_is_time": row_order_is_time,
+                "source_adapter": source.descriptor(),
             },
             "fit_scope": {
                 "split": "train",
@@ -210,7 +216,7 @@ def fit_continuous_csv_encoder(
 
 
 def count_continuous_csv_transitions(
-    csv_path: str | Path,
+    csv_path: Any,
     encoder: dict[str, Any],
     *,
     trajectory_column: str | None = None,
@@ -220,7 +226,7 @@ def count_continuous_csv_transitions(
     split_seed: int = 0,
     max_gap: float | None = None,
     smoothing: float = 0.0,
-    expected_source_signature: dict[str, int] | None = None,
+    expected_source_signature: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Pass 2: stream a frozen encoder into train/validation/all TPM counts.
 
@@ -246,8 +252,8 @@ def count_continuous_csv_transitions(
     if max_gap is not None and time_column is None:
         raise ValueError("max_gap requires a numeric time_column.")
 
-    path = Path(csv_path)
-    signature_before = _source_signature(path)
+    source = adapt_continuous_source(csv_path)
+    signature_before = source.source_signature()
     if expected_source_signature is not None and signature_before != expected_source_signature:
         raise ValueError("CSV source does not match the encoder's pass-1 source signature.")
 
@@ -265,8 +271,8 @@ def count_continuous_csv_transitions(
     previous_time: float | None = None
     previous_scope: str | None = None
 
-    raw_observations = _iter_csv_observations(
-        path,
+    raw_observations = _iter_source_observations(
+        source,
         feature_columns=source_names,
         trajectory_column=trajectory_column,
         time_column=time_column,
@@ -309,9 +315,9 @@ def count_continuous_csv_transitions(
         previous_time = timestamp
         previous_scope = scope
 
-    signature_after = _source_signature(path)
+    signature_after = source.source_signature()
     if signature_after != signature_before:
-        raise ValueError("CSV source changed while counting transitions; rerun on a stable file.")
+        raise ValueError("Continuous source changed while counting transitions; rerun on a stable source.")
 
     splits = {
         scope: _split_estimate(
@@ -353,6 +359,7 @@ def count_continuous_csv_transitions(
             "time_column": time_column,
             "ordering_assurance": "caller_declared_grouped_by_trajectory",
             "row_order_is_time": row_order_is_time,
+            "source_adapter": source.descriptor(),
         },
         "validation_fraction": validation_fraction,
         "split_seed": split_seed,
@@ -367,7 +374,7 @@ def count_continuous_csv_transitions(
 
 
 def analyze_continuous_csv(
-    csv_path: str | Path,
+    csv_path: Any,
     *,
     feature_columns: Sequence[str],
     microstate_count: int = MAX_EXACT_MICROSTATES,
@@ -397,13 +404,20 @@ def analyze_continuous_csv(
     temporal_volatility_windows: Sequence[int] = (),
     null_replicates: int = 0,
     null_seed: int = 0,
+    trajectory_null_replicates: int = 0,
+    trajectory_null_seed: int = 0,
+    grouped_bootstrap_replicates: int = 0,
+    grouped_bootstrap_seed: int = 0,
+    bootstrap_confidence_level: float = 0.95,
 ) -> dict[str, Any]:
-    """Run a two-pass, bounded-memory continuous CSV CE 2.0 analysis.
+    """Run a two-pass continuous CE 2.0 analysis over a tabular source.
 
     CE 2.0 endpoint selection occurs on the training split when one is requested;
     any validation and all-data results score the frozen selected path rather
     than rediscovering a new one. This prevents the same data from both selecting
-    and validating a narrative.
+    and validating a narrative. Path sources (CSV and Parquet) retain the
+    bounded-memory two-pass contract; DataFrames are accepted as caller-owned
+    materialized sources and are labelled accordingly in the output.
     """
     if search_mode not in {"exact", "beam", "auto"}:
         raise ValueError("search_mode must be 'exact', 'beam', or 'auto'.")
@@ -421,9 +435,16 @@ def analyze_continuous_csv(
         raise ValueError("support_policy must be 'retain_exploratory' or 'reject_run'.")
     if null_replicates < 0:
         raise ValueError("null_replicates must be non-negative.")
+    if trajectory_null_replicates < 0 or grouped_bootstrap_replicates < 0:
+        raise ValueError("trajectory-null and grouped-bootstrap replicate counts must be non-negative.")
+    if not isinstance(bootstrap_confidence_level, (int, float)) or not math.isfinite(
+        bootstrap_confidence_level
+    ) or not 0.0 < bootstrap_confidence_level < 1.0:
+        raise ValueError("bootstrap_confidence_level must be a finite number strictly between 0 and 1.")
 
+    source_adapter = adapt_continuous_source(csv_path)
     encoder = fit_continuous_csv_encoder(
-        csv_path,
+        source_adapter,
         feature_columns=feature_columns,
         microstate_count=microstate_count,
         trajectory_column=trajectory_column,
@@ -439,7 +460,7 @@ def analyze_continuous_csv(
         max_gap=max_gap,
     )
     transitions = count_continuous_csv_transitions(
-        csv_path,
+        source_adapter,
         encoder,
         trajectory_column=trajectory_column,
         time_column=time_column,
@@ -467,6 +488,7 @@ def analyze_continuous_csv(
     source = {
         "kind": "streaming_continuous_csv",
         "causal_interpretation": "model_derived_from_continuous_observations_via_frozen_discretization",
+        "source_adapter": source_adapter.descriptor(),
         "selection_scope": selection_scope,
         "continuous_encoder": encoder,
         "transition_estimation": {
@@ -573,7 +595,42 @@ def analyze_continuous_csv(
             "A near-zero consistency tolerance is strict CE 2.0. Raising it for noisy empirical data produces an approximate exploratory result, not an exact lumpability claim.",
         ]
     )
-    return narrative
+    if trajectory_null_replicates or grouped_bootstrap_replicates:
+        # This is intentionally opt-in: unlike the base two-pass estimator, it
+        # materializes complete encoded trajectories to preserve temporal and
+        # within-group dependence during resampling.
+        from causal_emergence_zoo.empirical_validation import (
+            validate_continuous_analysis_trajectories,
+        )
+
+        grouped_validation = validate_continuous_analysis_trajectories(
+            source_adapter,
+            narrative,
+            temporal_null_replicates=trajectory_null_replicates,
+            temporal_null_seed=trajectory_null_seed,
+            bootstrap_replicates=grouped_bootstrap_replicates,
+            bootstrap_seed=grouped_bootstrap_seed,
+            confidence_level=bootstrap_confidence_level,
+        )
+        bootstrap = grouped_validation["grouped_bootstrap"]
+        narrative["continuous_data"].update(
+            {
+                "trajectory_time_permutation_validation": grouped_validation[
+                    "temporal_permutation_null"
+                ],
+                "grouped_bootstrap_validation": bootstrap,
+                "grouped_trajectory_validation": grouped_validation,
+            }
+        )
+        narrative["empirical_validation"] = {"trajectory_resampling": grouped_validation}
+        narrative["robustness"] = _grouped_bootstrap_robustness_summary(
+            bootstrap,
+            endpoint_partition_id=narrative["ce2"]["endpoint"]["partition_id"],
+        )
+        narrative["limitations"].append(
+            "Trajectory-aware temporal nulls and grouped bootstrap are opt-in because they retain complete encoded trajectories; their resource cost scales with retained group data and replicate count."
+        )
+    return attach_evidence_ledger(narrative)
 
 
 def _state_support_audit(
@@ -596,6 +653,38 @@ def _state_support_audit(
         "outgoing_transition_counts": outgoing_counts,
         "under_supported_state_indices": under_supported,
         "is_adequately_supported": not under_supported,
+    }
+
+
+def _grouped_bootstrap_robustness_summary(
+    bootstrap: dict[str, Any],
+    *,
+    endpoint_partition_id: str,
+) -> dict[str, Any]:
+    """Map the grouped-bootstrap artifact to the familiar robustness summary."""
+    if bootstrap.get("status") != "completed":
+        return {
+            "status": bootstrap.get("status", "unavailable"),
+            "method": bootstrap.get("method"),
+            "replicates": bootstrap.get("replicates", 0),
+            "note": bootstrap.get("reason", bootstrap.get("observational_caveat")),
+        }
+    frequencies = {
+        item["partition_id"]: item["frequency"]
+        for item in bootstrap.get("endpoint_partition_frequencies", [])
+    }
+    return {
+        "status": "completed",
+        "method": bootstrap.get("method"),
+        "replicates": bootstrap.get("replicates"),
+        "successful_replicates": bootstrap.get("successful_replicates"),
+        "failed_replicates": bootstrap.get("failed_replicates"),
+        "seed": bootstrap.get("seed"),
+        "selected_endpoint_frequency": frequencies.get(endpoint_partition_id, 0.0),
+        "positive_emergence_frequency": bootstrap.get("positive_macro_emergence_frequency"),
+        "endpoint_cp_gain_interval": bootstrap.get("endpoint_cp_gain"),
+        "endpoint_frequencies": bootstrap.get("endpoint_partition_frequencies", []),
+        "caveat": bootstrap.get("observational_caveat"),
     }
 
 
@@ -670,56 +759,66 @@ def _iter_csv_observations(
     trajectory_column: str | None,
     time_column: str | None,
 ) -> Iterator[tuple[str | None, float | None, list[float]]]:
-    with _open_csv(path) as handle:
-        reader = csv.DictReader(handle)
-        if not reader.fieldnames:
-            raise ValueError("CSV must include a header row.")
-        required = list(feature_columns)
+    """Compatibility wrapper for path-only internal callers.
+
+    New continuous entry points use :func:`_iter_source_observations` so they
+    can work with the same semantics over CSV, Parquet, Pandas, and Polars.
+    """
+    yield from _iter_source_observations(
+        adapt_continuous_source(path),
+        feature_columns=feature_columns,
+        trajectory_column=trajectory_column,
+        time_column=time_column,
+    )
+
+
+def _iter_source_observations(
+    source: TabularSource,
+    *,
+    feature_columns: Sequence[str],
+    trajectory_column: str | None,
+    time_column: str | None,
+) -> Iterator[tuple[str | None, float | None, list[float]]]:
+    """Yield validated continuous observations from a normalized source."""
+    required = list(feature_columns)
+    if trajectory_column:
+        required.append(trajectory_column)
+    if time_column:
+        required.append(time_column)
+
+    active_trajectory: str | None | object = _UNSET
+    previous_time: float | None = None
+    for row_index, row in enumerate(source.iter_rows(required)):
+        location = source.location_label(row_index)
+        trajectory_id = None
         if trajectory_column:
-            required.append(trajectory_column)
+            raw_trajectory_id = row.get(trajectory_column)
+            if raw_trajectory_id is None or not str(raw_trajectory_id).strip():
+                raise ValueError(f"{location} has an empty trajectory identifier.")
+            # CSV values are textual, whereas DataFrames may contain numeric or
+            # categorical identifiers. A stable textual representation keeps
+            # grouping and deterministic train/validation splits consistent.
+            trajectory_id = str(raw_trajectory_id)
+
+        timestamp = None
         if time_column:
-            required.append(time_column)
-        missing = [column for column in required if column not in reader.fieldnames]
-        if missing:
-            raise ValueError(f"CSV is missing required column(s): {', '.join(missing)}.")
+            timestamp = _coerce_number(
+                row.get(time_column), f"{location}, column {time_column!r}"
+            )
+            if trajectory_id != active_trajectory:
+                active_trajectory = trajectory_id
+                previous_time = None
+            if previous_time is not None and timestamp <= previous_time:
+                raise ValueError(
+                    f"{location} is not strictly increasing in {time_column!r} within its trajectory."
+                )
+            previous_time = timestamp
 
-        active_trajectory: str | None | object = _UNSET
-        previous_time: float | None = None
-        for line_number, row in enumerate(reader, start=2):
-            trajectory_id = row[trajectory_column] if trajectory_column else None
-            if trajectory_column and not trajectory_id:
-                raise ValueError(f"CSV line {line_number} has an empty trajectory identifier.")
-            timestamp = None
-            if time_column:
-                timestamp = _coerce_number(row[time_column], f"CSV line {line_number}, column {time_column!r}")
-                if trajectory_id != active_trajectory:
-                    active_trajectory = trajectory_id
-                    previous_time = None
-                if previous_time is not None and timestamp <= previous_time:
-                    raise ValueError(
-                        f"CSV line {line_number} is not strictly increasing in {time_column!r} within its trajectory."
-                    )
-                previous_time = timestamp
-            vector = [
-                _coerce_number(row[column], f"CSV line {line_number}, column {column!r}")
-                for column in feature_columns
-            ]
-            yield trajectory_id, timestamp, vector
-
-
-def _open_csv(path: Path):
-    if not path.is_file():
-        raise FileNotFoundError(f"CSV file not found: {path}")
-    if path.suffix.lower() == ".gz":
-        return gzip.open(path, "rt", encoding="utf-8", newline="")
-    return path.open("r", encoding="utf-8", newline="")
-
-
-def _source_signature(path: Path) -> dict[str, int]:
-    if not path.is_file():
-        raise FileNotFoundError(f"CSV file not found: {path}")
-    stat = path.stat()
-    return {"size_bytes": stat.st_size, "modified_time_ns": stat.st_mtime_ns}
+        vector = [
+            _coerce_number(row.get(column), f"{location}, column {column!r}")
+            for column in feature_columns
+        ]
+        yield trajectory_id, timestamp, vector
 
 
 def _trajectory_split(

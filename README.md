@@ -1,13 +1,13 @@
 # causal-emergence-zoo
 
-`causal-emergence-zoo` is a small benchmark and data library for causal emergence research. It is meant to complement analysis packages such as PyMergence, `einet`, and related causal-emergence implementations by providing shared example systems, expected outputs, schemas, and reproducible generators.
+`causal-emergence-zoo` is a benchmark suite and experimental analysis library for causal-emergence research. It complements analysis packages such as PyMergence, `einet`, and related implementations with shared example systems, expected outputs, schemas, reproducible generators, and a careful CE 2.0 exploration workflow.
 
-The project is intentionally not a full causal-emergence analysis package. Its job is to be a reliable zoo of specimens: finite Markov systems with known or computed multiscale causal structure that other tools can load, validate, plot, and test against.
-
-It now also contains an **experimental CE 2.0 narrative prototype** for small,
-discrete trajectory data. The prototype is designed as a bridge toward a future
-analysis library; it remains intentionally conservative about causal claims and
-does not change the zoo's primary benchmark role.
+The benchmark zoo remains its calibration core: finite Markov systems with known
+or computed multiscale causal structure that other tools can load, validate,
+plot, and test against. It also contains an **experimental CE 2.0 narrative and
+continuous-data workflow** for cautious, evidence-linked exploration. It remains
+conservative about causal claims: fitted observational dynamics are never
+presented as independently identified interventions.
 
 ## Problem This Solves
 
@@ -122,7 +122,7 @@ print(result["best_partition"]["deltaCP"])
 
 ## Guided Exploration
 
-For an unfamiliar grouped numeric CSV, generate a documented plan, full JSON
+For an unfamiliar grouped numeric CSV, CSV.GZ, or Parquet path, generate a documented plan, full JSON
 result, and self-contained report with SVG charts:
 
 ```bash
@@ -132,7 +132,10 @@ cez explore observations.csv \
 ```
 
 The report includes resolution response, state support, macro dynamics,
-feature-grounded state descriptions, and validation evidence. See the
+feature-grounded state descriptions, validation evidence, and selectable
+claim-level support/counterevidence. From Python, `explore()` also accepts
+Pandas and Polars DataFrames; file paths preserve bounded-memory input semantics.
+Install optional readers with `pip install "causal-emergence-zoo[tabular]"`. See the
 [guided exploration guide](docs/guided-exploration.md).
 
 ## Experimental CE 2.0 Narrative Workflow

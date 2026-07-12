@@ -24,6 +24,7 @@ from causal_emergence_zoo.estimation import (
 )
 from causal_emergence_zoo.metrics import Matrix, compute_metrics
 from causal_emergence_zoo.hierarchy import build_causal_hierarchy
+from causal_emergence_zoo.evidence import attach_evidence_ledger
 
 
 def narrate_tpm(
@@ -71,12 +72,13 @@ def narrate_tpm(
             "causal_interpretation": "caller_must_declare_interventional_semantics",
         },
     }
-    return build_narrative_graph(
+    result = build_narrative_graph(
         model,
         ce2,
         edge_probability_threshold=edge_probability_threshold,
         gain_tolerance=gain_tolerance,
     )
+    return attach_evidence_ledger(result)
 
 
 def analyze_trajectories(
@@ -146,7 +148,7 @@ def analyze_trajectories(
         replicates=bootstrap_replicates,
         seed=bootstrap_seed,
     )
-    return result
+    return attach_evidence_ledger(result)
 
 
 def build_narrative_graph(
