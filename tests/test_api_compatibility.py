@@ -10,7 +10,11 @@ from __future__ import annotations
 import json
 from importlib.resources import files
 from pathlib import Path
-import tomllib
+
+try:  # Python 3.11+ includes the TOML parser in the standard library.
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised by the 3.10 CI job.
+    import tomli as tomllib
 
 import causal_emergence_zoo as cez
 

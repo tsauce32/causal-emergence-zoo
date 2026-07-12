@@ -39,7 +39,7 @@ Issues = "https://github.com/tsauce32/causal-emergence-zoo/issues"
 [project.optional-dependencies]
 plots = ["matplotlib>=3.8"]
 tabular = ["pandas>=2.0", "polars>=0.20", "pyarrow>=14.0"]
-dev = ["build>=1", "pytest>=8"]
+dev = ["build>=1", "pytest>=8", "tomli>=2.0; python_version < '3.11'"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
