@@ -7,13 +7,15 @@ from pathlib import Path
 from typing import Any
 
 
-def render_exploration_report(exploration: dict[str, Any]) -> str:
+def render_exploration_report(exploration: Any) -> str:
     """Render a portable report with local interaction and claim-level evidence.
 
     No information is fetched after the file is opened.  The report deliberately
     lets readers inspect evidence, uncertainty, and counterevidence before
     treating the deterministic prose as a narrative conclusion.
     """
+    if hasattr(exploration, "to_legacy_dict"):
+        exploration = exploration.to_legacy_dict()
     profile, plan, analysis = (
         exploration["profile"],
         exploration["plan"],

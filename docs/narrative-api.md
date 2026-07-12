@@ -1,5 +1,9 @@
 # CE 2.0 Narrative API
 
+For the versioned v0.2 Python objects and JSON contract, see the
+[public API guide](public-api.md). This page documents the compatible
+dictionary-returning narrative functions underneath that typed layer.
+
 This repository now includes an experimental, dependency-free vertical slice for
 turning small discrete trajectories into an evidence-linked multiscale narrative.
 It follows the finite-Markov-chain, hard-partition setting of Erik Hoel's

@@ -138,6 +138,22 @@ Pandas and Polars DataFrames; file paths preserve bounded-memory input semantics
 Install optional readers with `pip install "causal-emergence-zoo[tabular]"`. See the
 [guided exploration guide](docs/guided-exploration.md).
 
+## Stable v0.2 API
+
+The original dictionary-returning functions remain available. For new work, use
+the typed v0.2 workflow, which gives each stage a versioned, serializable object:
+
+```python
+from causal_emergence_zoo import explore_typed
+
+result = explore_typed("country_year.parquet", entity="country_code", time="year")
+print(result.summary())
+result.export_report("report.html")
+```
+
+See the [public API contract](docs/public-api.md) and [changelog](CHANGELOG.md)
+for migration and artifact details.
+
 ## Experimental CE 2.0 Narrative Workflow
 
 For small discrete trajectory datasets, the package can estimate a first-order

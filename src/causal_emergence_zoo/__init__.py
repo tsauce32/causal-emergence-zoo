@@ -1,4 +1,6 @@
-"""Lightweight utilities for the causal-emergence benchmark zoo."""
+"""Public API for causal-emergence-zoo."""
+
+__version__ = "0.2.0"
 
 from causal_emergence_zoo.ce2 import analyze_ce2_path, check_dynamical_consistency, discover_ce2_path
 from causal_emergence_zoo.approximate import approximate_ce2_path
@@ -9,9 +11,16 @@ from causal_emergence_zoo.estimation import (
 )
 from causal_emergence_zoo.io import available_systems, load_system
 from causal_emergence_zoo.metrics import compute_metrics
-from causal_emergence_zoo.narrative import analyze_trajectories, build_narrative_graph, narrate_tpm
+from causal_emergence_zoo.narrative import (
+    analyze_trajectories,
+    analyze_trajectories_typed,
+    build_narrative_graph,
+    narrate_tpm,
+    narrate_tpm_typed,
+)
 from causal_emergence_zoo.continuous import (
     analyze_continuous_csv,
+    analyze_continuous_typed,
     count_continuous_csv_transitions,
     encode_continuous_observation,
     fit_continuous_csv_encoder,
@@ -39,10 +48,33 @@ from causal_emergence_zoo.temporal import derive_temporal_features, temporal_fea
 from causal_emergence_zoo.explore import (
     explore,
     explore_csv,
+    explore_typed,
     profile_csv,
     profile_source,
+    profile_typed,
     recommend_analysis_plan,
+    recommend_analysis_plan_typed,
     write_exploration_json,
+)
+from causal_emergence_zoo.api import (
+    API_SCHEMA_VERSION,
+    AnalysisPlan,
+    ArtifactValidationError,
+    CausalHierarchy,
+    DataProfile,
+    EvidenceLedger,
+    ExplorationResult,
+    NarrativeReport,
+    StateModel,
+    analysis_plan_from_dict,
+    causal_hierarchy_from_dict,
+    data_profile_from_dict,
+    evidence_ledger_from_dict,
+    exploration_result_from_dict,
+    narrative_report_from_dict,
+    public_api_schema,
+    state_model_from_dict,
+    validate_public_artifact,
 )
 from causal_emergence_zoo.report import render_exploration_report
 from causal_emergence_zoo.evidence import attach_evidence_ledger, build_evidence_ledger
@@ -66,10 +98,22 @@ from causal_emergence_zoo.search import branching_greedy_search, greedy_completi
 from causal_emergence_zoo.validation import validate_system
 
 __all__ = [
+    "API_SCHEMA_VERSION",
+    "AnalysisPlan",
+    "ArtifactValidationError",
+    "CausalHierarchy",
+    "DataProfile",
+    "EvidenceLedger",
+    "ExplorationResult",
+    "NarrativeReport",
+    "StateModel",
     "analyze_ce2_path",
     "analyze_continuous_csv",
+    "analyze_continuous_typed",
     "analyze_continuous_multiresolution_csv",
     "analyze_trajectories",
+    "analyze_trajectories_typed",
+    "analysis_plan_from_dict",
     "adapt_continuous_source",
     "assess_multiresolution_stability",
     "approximate_ce2_path",
@@ -79,6 +123,7 @@ __all__ = [
     "build_narrative_graph",
     "build_causal_hierarchy",
     "build_evidence_ledger",
+    "causal_hierarchy_from_dict",
     "assemble_social_atlas",
     "check_dynamical_consistency",
     "coarse_grain_tpm",
@@ -89,8 +134,12 @@ __all__ = [
     "discover_ce2_path",
     "derive_temporal_features",
     "describe_continuous_source",
+    "data_profile_from_dict",
+    "evidence_ledger_from_dict",
     "explore",
     "explore_csv",
+    "explore_typed",
+    "exploration_result_from_dict",
     "enumerate_partitions",
     "estimate_tpm_from_trajectories",
     "estimate_tpm_from_transition_counts",
@@ -109,19 +158,27 @@ __all__ = [
     "load_country_year_source",
     "load_system",
     "narrate_tpm",
+    "narrate_tpm_typed",
+    "narrative_report_from_dict",
     "PandasDataFrameSource",
     "ParquetTabularSource",
     "PolarsDataFrameSource",
     "profile_csv",
     "profile_source",
+    "profile_typed",
+    "public_api_schema",
     "recommend_analysis_plan",
+    "recommend_analysis_plan_typed",
     "render_exploration_report",
     "write_social_atlas_csv",
     "write_exploration_json",
     "validate_system",
     "temporal_feature_names",
     "TabularSource",
+    "state_model_from_dict",
     "trajectory_temporal_permutation_null",
     "validate_continuous_analysis_trajectories",
     "validate_grouped_trajectories",
+    "validate_public_artifact",
+    "__version__",
 ]

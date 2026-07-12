@@ -87,6 +87,13 @@ def profile_csv(source: Any, *, entity: str | None = None, time: str | None = No
     return profile_source(source, entity=entity, time=time)
 
 
+def profile_typed(source: Any, *, entity: str | None = None, time: str | None = None):
+    """Return the v0.2 :class:`DataProfile` while preserving ``profile_source``."""
+    from causal_emergence_zoo.api import DataProfile
+
+    return DataProfile.from_dict(profile_source(source, entity=entity, time=time))
+
+
 def recommend_analysis_plan(profile: dict[str, Any], *, features: Sequence[str] | None = None, resolutions: Sequence[int] | None = None, seeds: Sequence[int] = (0,)) -> dict[str, Any]:
     """Produce a serializable recommendation; no analysis is run here."""
     selected = list(features or profile["inferred_roles"]["numeric_features"])
@@ -112,6 +119,19 @@ def recommend_analysis_plan(profile: dict[str, Any], *, features: Sequence[str] 
     }
 
 
+def recommend_analysis_plan_typed(
+    profile: Any,
+    *,
+    features: Sequence[str] | None = None,
+    resolutions: Sequence[int] | None = None,
+    seeds: Sequence[int] = (0,),
+):
+    """Return a v0.2 :class:`AnalysisPlan` from a profile or legacy mapping."""
+    from causal_emergence_zoo.api import AnalysisPlan
+
+    return AnalysisPlan.recommend(profile, features=features, resolutions=resolutions, seeds=seeds)
+
+
 def explore(
     source: Any,
     *,
@@ -126,6 +146,59 @@ def explore(
     adapted = adapt_continuous_source(source)
     profile = profile_source(adapted, entity=entity, time=time)
     plan = recommend_analysis_plan(profile, features=features, resolutions=resolutions, seeds=seeds)
+    return _execute_exploration(adapted, profile=profile, plan=plan, report_path=report_path)
+
+
+def explore_typed(
+    source: Any,
+    *,
+    plan: Any | None = None,
+    entity: str | None = None,
+    time: str | None = None,
+    features: Sequence[str] | None = None,
+    resolutions: Sequence[int] | None = None,
+    seeds: Sequence[int] = (0,),
+    report_path: str | Path | None = None,
+):
+    """Run the canonical v0.2 typed exploration workflow.
+
+    Existing :func:`explore` remains the compatibility function and returns a
+    dictionary.  This entry point returns an ``ExplorationResult`` with explicit
+    ``DataProfile``, ``AnalysisPlan``, and per-run ``NarrativeReport`` objects.
+    When a plan is supplied, it is run as declared; feature/time overrides are
+    rejected to avoid silently altering a serialized analysis plan.
+    """
+    from causal_emergence_zoo.api import AnalysisPlan, DataProfile, ExplorationResult
+
+    adapted = adapt_continuous_source(source)
+    profile = DataProfile.from_dict(profile_source(adapted, entity=entity, time=time))
+    if plan is None:
+        typed_plan = AnalysisPlan.recommend(
+            profile, features=features, resolutions=resolutions, seeds=seeds
+        )
+    else:
+        if any(value is not None for value in (entity, time, features, resolutions)) or seeds != (0,):
+            raise ValueError(
+                "Pass either a declared plan or entity/time/feature/resolution/seed overrides, not both."
+            )
+        typed_plan = plan if isinstance(plan, AnalysisPlan) else AnalysisPlan.from_dict(plan)
+    legacy = _execute_exploration(
+        adapted,
+        profile=profile.to_dict(),
+        plan=typed_plan.to_dict(),
+        report_path=report_path,
+    )
+    return ExplorationResult.from_legacy_dict(legacy)
+
+
+def _execute_exploration(
+    adapted: TabularSource,
+    *,
+    profile: dict[str, Any],
+    plan: dict[str, Any],
+    report_path: str | Path | None,
+) -> dict[str, Any]:
+    """Shared execution path for legacy and typed exploration APIs."""
     result = analyze_continuous_multiresolution_csv(
         adapted,
         feature_columns=plan["feature_columns"],
@@ -192,7 +265,11 @@ def describe_states(exploration: dict[str, Any]) -> list[dict[str, Any]]:
     return [{"resolution": best["resolution"], "seed": best["seed"], "states": descriptions}]
 
 
-def write_exploration_json(exploration: dict[str, Any], path: str | Path) -> None:
+def write_exploration_json(exploration: Any, path: str | Path) -> None:
+    """Write a legacy mapping or a v0.2 ``ExplorationResult`` as JSON."""
+    if hasattr(exploration, "to_json"):
+        Path(path).write_text(exploration.to_json(indent=2) + "\n", encoding="utf-8")
+        return
     Path(path).write_text(json.dumps(exploration, indent=2, allow_nan=False), encoding="utf-8")
 
 

@@ -81,6 +81,19 @@ def narrate_tpm(
     return attach_evidence_ledger(result)
 
 
+def narrate_tpm_typed(
+    tpm: Matrix,
+    **kwargs: Any,
+):
+    """Return a v0.2 ``NarrativeReport`` for a supplied finite TPM.
+
+    ``narrate_tpm`` remains the legacy dictionary-returning compatibility API.
+    """
+    from causal_emergence_zoo.api import NarrativeReport
+
+    return NarrativeReport.from_legacy_dict(narrate_tpm(tpm, **kwargs))
+
+
 def analyze_trajectories(
     trajectories: Iterable[Trajectory],
     *,
@@ -149,6 +162,16 @@ def analyze_trajectories(
         seed=bootstrap_seed,
     )
     return attach_evidence_ledger(result)
+
+
+def analyze_trajectories_typed(
+    trajectories: Iterable[Trajectory],
+    **kwargs: Any,
+):
+    """Return a v0.2 ``NarrativeReport`` for discrete trajectories."""
+    from causal_emergence_zoo.api import NarrativeReport
+
+    return NarrativeReport.from_legacy_dict(analyze_trajectories(trajectories, **kwargs))
 
 
 def build_narrative_graph(

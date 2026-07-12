@@ -633,6 +633,17 @@ def analyze_continuous_csv(
     return attach_evidence_ledger(narrative)
 
 
+def analyze_continuous_typed(source: Any, **kwargs: Any):
+    """Return a v0.2 ``NarrativeReport`` for a continuous tabular source.
+
+    The historical ``analyze_continuous_csv`` name remains a dictionary-returning
+    compatibility API even though it now accepts CSV, Parquet, and DataFrames.
+    """
+    from causal_emergence_zoo.api import NarrativeReport
+
+    return NarrativeReport.from_legacy_dict(analyze_continuous_csv(source, **kwargs))
+
+
 def _state_support_audit(
     estimate: dict[str, Any],
     *,
