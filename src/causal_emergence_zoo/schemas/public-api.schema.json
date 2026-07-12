@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tsauce32/causal-emergence-zoo/schemas/public-api.schema.json",
+  "title": "causal-emergence-zoo v0.2 public artifact",
+  "description": "Canonical, extensible v0.2 JSON envelopes. Additional fields are allowed for forward-compatible extensions.",
+  "oneOf": [
+    {"$ref": "#/$defs/dataProfile"},
+    {"$ref": "#/$defs/analysisPlan"},
+    {"$ref": "#/$defs/stateModel"},
+    {"$ref": "#/$defs/causalHierarchy"},
+    {"$ref": "#/$defs/evidenceLedger"},
+    {"$ref": "#/$defs/narrativeReport"},
+    {"$ref": "#/$defs/explorationResult"}
+  ],
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": ["schema_version", "kind"],
+      "properties": {
+        "schema_version": {"const": "0.2.0"},
+        "kind": {"type": "string"}
+      }
+    },
+    "dataProfile": {
+      "allOf": [
+        {"$ref": "#/$defs/base"},
+        {
+          "properties": {"kind": {"const": "causal_emergence.data_profile"}},
+          "required": ["source", "row_count", "columns", "inferred_roles", "missing_counts", "numeric_ranges", "trajectory_count", "trajectory_length", "warnings"]
+        }
+      ]
+    },
+    "analysisPlan": {
+      "allOf": [
+        {"$ref": "#/$defs/base"},
+        {
+          "properties": {"kind": {"const": "causal_emergence.analysis_plan"}},
+          "required": ["entity_column", "time_column", "feature_columns", "resolutions", "encoder_seeds", "search_mode", "temporal_features", "validation_fraction", "support", "null_replicates", "notes"]
+        }
+      ]
+    },
+    "stateModel": {
+      "allOf": [
+        {"$ref": "#/$defs/base"},
+        {
+          "properties": {"kind": {"const": "causal_emergence.state_model"}},
+          "required": ["source", "state_labels", "state_count", "tpm", "microscale_metrics", "encoder", "transition_estimate"]
+        }
+      ]
+    },
+    "causalHierarchy": {
+      "allOf": [
+        {"$ref": "#/$defs/base"},
+        {
+          "properties": {"kind": {"const": "causal_emergence.causal_hierarchy"}},
+          "required": ["method", "source", "microstates", "scales", "endpoint", "emergent_complexity", "uncertainty", "evidence"]
+        }
+      ]
+    },
+    "evidenceLedger": {
+      "allOf": [
+        {"$ref": "#/$defs/base"},
+        {
+          "properties": {"kind": {"const": "causal_emergence.evidence_ledger"}},
+          "required": ["claim_count", "source_kind", "claims", "summary"]
+        }
+      ]
+    },
+    "narrativeReport": {
+      "allOf": [
+        {"$ref": "#/$defs/base"},
+        {
+          "properties": {"kind": {"const": "causal_emergence.narrative_report"}},
+          "required": ["analysis_type", "status", "summary", "narrative_text", "state_model", "causal_hierarchy", "evidence_ledger", "assumptions", "limitations"]
+        }
+      ]
+    },
+    "explorationResult": {
+      "allOf": [
+        {"$ref": "#/$defs/base"},
+        {
+          "properties": {"kind": {"const": "causal_emergence.exploration_result"}},
+          "required": ["profile", "plan", "reports", "analysis", "state_descriptions", "artifacts"]
+        }
+      ]
+    }
+  }
+}

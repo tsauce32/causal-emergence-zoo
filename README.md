@@ -1,8 +1,13 @@
 # causal-emergence-zoo
 
-`causal-emergence-zoo` is a small benchmark and data library for causal emergence research. It is meant to complement analysis packages such as PyMergence, `einet`, and related causal-emergence implementations by providing shared example systems, expected outputs, schemas, and reproducible generators.
+`causal-emergence-zoo` is a benchmark suite and experimental analysis library for causal-emergence research. It complements analysis packages such as PyMergence, `einet`, and related implementations with shared example systems, expected outputs, schemas, reproducible generators, and a careful CE 2.0 exploration workflow.
 
-The project is intentionally not a full causal-emergence analysis package. Its job is to be a reliable zoo of specimens: finite Markov systems with known or computed multiscale causal structure that other tools can load, validate, plot, and test against.
+The benchmark zoo remains its calibration core: finite Markov systems with known
+or computed multiscale causal structure that other tools can load, validate,
+plot, and test against. It also contains an **experimental CE 2.0 narrative and
+continuous-data workflow** for cautious, evidence-linked exploration. It remains
+conservative about causal claims: fitted observational dynamics are never
+presented as independently identified interventions.
 
 ## Problem This Solves
 
@@ -115,6 +120,86 @@ print(result["best_partition"]["blocks"])
 print(result["best_partition"]["deltaCP"])
 ```
 
+## Guided Exploration
+
+For an unfamiliar grouped numeric CSV, CSV.GZ, or Parquet path, generate a documented plan, full JSON
+result, and self-contained report with SVG charts:
+
+```bash
+cez explore observations.csv \
+  --entity session --time time \
+  --report report.html --output result.json
+```
+
+The report includes resolution response, state support, macro dynamics,
+feature-grounded state descriptions, validation evidence, and selectable
+claim-level support/counterevidence. From Python, `explore()` also accepts
+Pandas and Polars DataFrames; file paths preserve bounded-memory input semantics.
+Install optional readers with `pip install "causal-emergence-zoo[tabular]"`. See the
+[guided exploration guide](docs/guided-exploration.md).
+
+## Stable v0.2 API
+
+The original dictionary-returning functions remain available. For new work, use
+the typed v0.2 workflow, which gives each stage a versioned, serializable object:
+
+```python
+from causal_emergence_zoo import explore_typed
+
+result = explore_typed("country_year.parquet", entity="country_code", time="year")
+print(result.summary())
+result.export_report("report.html")
+```
+
+See the [public API contract](docs/public-api.md) and [changelog](CHANGELOG.md)
+for migration and artifact details.
+
+## Experimental CE 2.0 Narrative Workflow
+
+For small discrete trajectory datasets, the package can estimate a first-order
+Markov TPM, find dynamically consistent CE 2.0 scales, apportion CP gains along
+a nested micro-to-macro path, and return an auditable narrative graph.
+
+```bash
+cez narrate examples/two-block-trajectories.example.json
+cez narrate examples/two-block-trajectories.example.json --json --output narrative.json
+```
+
+```python
+from causal_emergence_zoo import analyze_trajectories
+
+result = analyze_trajectories(
+    [["A", "A", "B", "B", "A"], ["C", "C", "D", "D", "C"]],
+    state_labels=["A", "B", "C", "D"],
+)
+print(result["narrative_text"])
+```
+
+This prototype follows the CE 2.0 path formulation, rather than reinterpreting
+the existing best-partition hierarchy as CE 2.0. It only performs exact search
+through eight states, checks finite-horizon dynamic consistency, and labels
+trajectory-derived models as observational. See [the narrative API guide](docs/narrative-api.md).
+
+## Streaming Continuous CSV Workflow
+
+Large continuous datasets can now be streamed through a bounded-memory bridge:
+a reservoir-sampled, frozen k-means encoder converts observations into 2–8
+learned microstates, then the package builds a TPM and applies exact CE 2.0 to
+that finite model.
+
+```bash
+cez narrate-continuous observations.csv \
+  --feature temperature --feature pressure \
+  --trajectory-column session --time-column time \
+  --microstates 6 --reservoir-size 100000 \
+  --json --output continuous-narrative.json
+```
+
+The file is read twice but never loaded in full. Rows must be grouped by
+trajectory and time ordered; arbitrary interleaved IDs are intentionally not
+supported in bounded-memory mode. This is a discretized continuous-data bridge,
+not native continuous-state CE 2.0. See [the continuous-data guide](docs/continuous-data.md).
+
 ## Passing Information Into The Zoo
 
 There are two main information paths:
@@ -144,13 +229,22 @@ Benchmark fixtures are package data. A normal wheel install can load them with `
 - [Adapter guide](docs/adapter-guide.md)
 - [Compatibility levels](docs/compatibility-levels.md)
 - [Algorithm harmonization spec](docs/algorithm-harmonization-spec-change.md)
+- [CE 2.0 narrative API](docs/narrative-api.md)
+- [Hoel CE 2.0 paper reference systems](docs/ce2-paper-reference.md)
+- [Streaming continuous data](docs/continuous-data.md)
+- [Multiresolution CE2 improvement specification](docs/multiresolution-ce2-spec.md)
+- [Guided exploration and HTML reports](docs/guided-exploration.md)
+- [Continuous multiscale recovery case study](docs/continuous-recovery-case-study.md)
+- [Social-system atlas benchmark](docs/social-system-atlas.md)
+- [RAS3 religion-policy empirical pilot](docs/benchmarks/ras3-religion-policy-pilot.md)
 - [Benchmark design](docs/benchmark-design.md)
 - [Benchmark cards](docs/benchmarks/README.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## Roadmap
 
-- Add Hoel CE 2.0-style examples that match published figures more closely.
+- Expand the Hoel CE 2.0 reference suite when exact paths or supplementary fixtures are published.
+- Benchmark approximate CE 2.0 search on larger published and domain-specific systems.
 - Add Engineering Emergence examples with branching greedy hierarchy traces for systems too large to exhaust.
 - Add reference plots for each benchmark family.
 - Add adapters/examples for comparing outputs from PyMergence and `einet`.

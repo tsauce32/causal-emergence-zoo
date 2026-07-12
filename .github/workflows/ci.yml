@@ -19,18 +19,52 @@ jobs:
         run: python -m pip install -e ".[dev]"
       - name: Run tests
         run: python -m pytest
-      - name: Build wheel
-        run: python -m build --wheel
-      - name: Smoke test wheel data loading
+      - name: Build wheel and source distribution
+        if: matrix.python-version == '3.11'
+        run: python -m build --wheel --sdist
+      - name: Smoke test wheel public API
+        if: matrix.python-version == '3.11'
         run: |
           python -m venv wheel-smoke
           wheel-smoke/bin/python -m pip install dist/*.whl
           wheel-smoke/bin/python - <<'PY'
-          from causal_emergence_zoo import available_systems, load_system
+          from causal_emergence_zoo import (
+              API_SCHEMA_VERSION,
+              available_systems,
+              load_system,
+              narrate_tpm_typed,
+              validate_public_artifact,
+          )
 
           systems = available_systems()
           assert "two_block_noisy_4" in systems, systems
           system = load_system("two_block_noisy_4")
           assert system["state_count"] == 4
           assert system["emergent_hierarchy"]["best_partition"]["partition_id"] == "01|23"
+          report = narrate_tpm_typed(system["microscale"]["tpm"], state_labels=system["state_labels"])
+          assert report.to_dict()["schema_version"] == API_SCHEMA_VERSION == "0.2.0"
+          validate_public_artifact(report.to_dict())
           PY
+      - name: Smoke test source distribution public API
+        if: matrix.python-version == '3.11'
+        run: |
+          python -m venv sdist-smoke
+          sdist-smoke/bin/python -m pip install dist/*.tar.gz
+          sdist-smoke/bin/python - <<'PY'
+          from causal_emergence_zoo import __version__, public_api_schema
+
+          assert __version__ == "0.2.0"
+          assert public_api_schema()["$defs"]["narrativeReport"]
+          PY
+
+  tabular:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install optional tabular readers
+        run: python -m pip install -e ".[dev,tabular]"
+      - name: Run tabular adapter tests
+        run: python -m pytest tests/test_tabular_sources.py

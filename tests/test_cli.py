@@ -226,3 +226,101 @@ def test_cli_compare_packaged_examples(capsys):
     output = capsys.readouterr().out
 
     assert output.count("PASS") == len(examples)
+
+
+def test_cli_narrate_prints_json_narrative_graph(tmp_path, capsys):
+    payload = {
+        "state_labels": ["A", "B", "C", "D"],
+        "trajectories": [
+            ["A", "A", "B", "B", "A", "B", "A"],
+            ["C", "C", "D", "D", "C", "D", "C"],
+        ],
+    }
+    path = tmp_path / "trajectories.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    assert main(["narrate", str(path), "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["analysis_type"] == "ce2_multiscale"
+    assert result["status"] == "emergent"
+    assert result["selected_macro_model"]["blocks"] == [[0, 1], [2, 3]]
+
+
+def test_cli_narrate_human_output_and_file_output_agree(tmp_path, capsys):
+    payload = {
+        "state_labels": ["A", "B", "C"],
+        "trajectories": [["A", "A"], ["B", "B"], ["C", "C"]],
+    }
+    input_path = tmp_path / "identity.json"
+    output_path = tmp_path / "narrative.json"
+    input_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    assert main(["narrate", str(input_path), "--output", str(output_path)]) == 0
+
+    output = capsys.readouterr().out
+    result = json.loads(output_path.read_text(encoding="utf-8"))
+    assert "No dynamically consistent coarser model" in output
+    assert result["status"] == "no_emergence"
+
+
+def test_cli_narrate_continuous_emits_json_analysis(tmp_path, capsys):
+    path = tmp_path / "continuous.csv"
+    path.write_text(
+        "trajectory_id,time,signal\n"
+        "left,0,0\nleft,1,0\nleft,2,1\nleft,3,1\nleft,4,0\n"
+        "right,0,10\nright,1,10\nright,2,11\nright,3,11\nright,4,10\n",
+        encoding="utf-8",
+    )
+
+    assert main([
+        "narrate-continuous",
+        str(path),
+        "--feature",
+        "signal",
+        "--microstates",
+        "4",
+        "--trajectory-column",
+        "trajectory_id",
+        "--time-column",
+        "time",
+        "--json",
+    ]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["analysis_type"] == "ce2_multiscale_discretized_continuous"
+    assert result["input_model"]["source"]["kind"] == "streaming_continuous_csv"
+
+
+def test_cli_continuous_exposes_opt_in_trajectory_checks(tmp_path, capsys):
+    path = tmp_path / "continuous.csv"
+    path.write_text(
+        "trajectory_id,time,signal\n"
+        "left,0,0\nleft,1,0\nleft,2,1\nleft,3,1\nleft,4,0\n"
+        "right,0,10\nright,1,10\nright,2,11\nright,3,11\nright,4,10\n",
+        encoding="utf-8",
+    )
+
+    assert main([
+        "narrate-continuous",
+        str(path),
+        "--feature",
+        "signal",
+        "--microstates",
+        "4",
+        "--trajectory-column",
+        "trajectory_id",
+        "--time-column",
+        "time",
+        "--smoothing",
+        "0.1",
+        "--trajectory-null-replicates",
+        "1",
+        "--grouped-bootstrap-replicates",
+        "1",
+        "--json",
+    ]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["continuous_data"]["trajectory_time_permutation_validation"]["status"] == "completed"
+    assert result["continuous_data"]["grouped_bootstrap_validation"]["status"] == "completed"
