@@ -1,0 +1,74 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build release distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install build tooling
+        run: python -m pip install --upgrade build twine
+      - name: Verify release tag matches package version
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          version = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+          assert os.environ["RELEASE_TAG"] == f"v{version}", (
+              f"Release tag {os.environ['RELEASE_TAG']!r} does not match package version v{version}."
+          )
+          PY
+      - name: Build wheel and source distribution
+        run: python -m build
+      - name: Check distribution metadata
+        run: python -m twine check dist/*
+      - name: Smoke-test wheel installation
+        run: |
+          python -m venv smoke
+          smoke/bin/python -m pip install dist/*.whl
+          smoke/bin/python -c "import causal_emergence_zoo as cez; print(cez.__version__)"
+      - name: Smoke-test source-distribution installation
+        run: |
+          python -m venv sdist-smoke
+          sdist-smoke/bin/python -m pip install dist/*.tar.gz
+          sdist-smoke/bin/python -c "import causal_emergence_zoo as cez; print(cez.__version__)"
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish:
+    name: Publish distribution to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/causal-emergence-zoo
+    permissions:
+      id-token: write
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

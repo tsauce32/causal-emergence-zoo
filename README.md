@@ -79,7 +79,30 @@ tests/         Regression tests for schemas, metrics, and generated fixtures
 docs/          Concept notes and benchmark design docs
 ```
 
-## Quick Start
+## First Analysis in Five Minutes
+
+Install the ordinary user package:
+
+```bash
+python -m pip install causal-emergence-zoo
+```
+
+Then run one command:
+
+```bash
+cez demo
+```
+
+It writes `cez-social-demo-report.html` and `cez-social-demo-result.json` in
+the current directory. Open the HTML file in a browser to inspect the learned
+states, CE response chart, macro dynamics, narrative claims, caveats, and
+supporting evidence. The bundled country-year example is **synthetic**; it is
+for learning the workflow, not evidence about real countries, religion,
+poverty, or violence. See the [first-analysis guide](docs/first-analysis.md).
+For Parquet files or Pandas/Polars DataFrames later, install the optional
+readers with `python -m pip install "causal-emergence-zoo[tabular]"`.
+
+## Developer Quick Start
 
 ```bash
 python -m pip install -e ".[dev]"
@@ -176,16 +199,20 @@ print(result["narrative_text"])
 ```
 
 This prototype follows the CE 2.0 path formulation, rather than reinterpreting
-the existing best-partition hierarchy as CE 2.0. It only performs exact search
-through eight states, checks finite-horizon dynamic consistency, and labels
-trajectory-derived models as observational. See [the narrative API guide](docs/narrative-api.md).
+the existing best-partition hierarchy as CE 2.0. It performs exhaustive search
+through eight states, then automatically uses a bounded, dynamically consistent
+beam search for 9–16 states. Beam results explicitly report their budget,
+coverage, and non-global-optimality; they are not exact CE 2.0 optima.
+Trajectory-derived models remain labelled observational. See [the narrative API guide](docs/narrative-api.md).
 
 ## Streaming Continuous CSV Workflow
 
 Large continuous datasets can now be streamed through a bounded-memory bridge:
 a reservoir-sampled, frozen k-means encoder converts observations into 2–8
-learned microstates, then the package builds a TPM and applies exact CE 2.0 to
-that finite model.
+learned microstates for exact CE 2.0, or 9–16 learned microstates for the
+explicitly bounded beam search. The package builds a finite TPM in either case;
+this is not native continuous-state CE 2.0. Beam results report non-exhaustive
+coverage and must not be interpreted as global CE 2.0 optima.
 
 ```bash
 cez narrate-continuous observations.csv \
@@ -233,6 +260,7 @@ Benchmark fixtures are package data. A normal wheel install can load them with `
 - [Hoel CE 2.0 paper reference systems](docs/ce2-paper-reference.md)
 - [Streaming continuous data](docs/continuous-data.md)
 - [Multiresolution CE2 improvement specification](docs/multiresolution-ce2-spec.md)
+- [Five-minute first analysis](docs/first-analysis.md)
 - [Guided exploration and HTML reports](docs/guided-exploration.md)
 - [Continuous multiscale recovery case study](docs/continuous-recovery-case-study.md)
 - [Social-system atlas benchmark](docs/social-system-atlas.md)

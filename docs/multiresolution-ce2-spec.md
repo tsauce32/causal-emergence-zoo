@@ -6,6 +6,11 @@ Target milestone: `0.2.0`
 
 ## Summary
 
+> **Implementation status (v0.2):** the current supported envelope is 2–8
+> exact learned microstates and 9–16 bounded beam-search microstates. The
+> 32-state references below are a forward-looking design target, not current
+> implementation behavior.
+
 This change extends the continuous-data workflow from a single exact analysis
 with 2–8 learned microstates to a validated multiresolution workflow supporting
 up to 32 learned microstates.
@@ -93,6 +98,8 @@ analyze_continuous_csv(
 The following options are added:
 
 ```python
+# The 24/32-state values below illustrate the forward-looking design target;
+# the current implementation accepts resolutions through 16 only.
 analyze_continuous_multiresolution_csv(
     path,
     feature_columns=[...],
@@ -425,4 +432,3 @@ The implementation PR must resolve and document:
 - number of null and seed replicates used by quick and confirmatory profiles;
 - whether temporal features are materialized into a derived CSV artifact or
   computed only during streaming.
-

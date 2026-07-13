@@ -6,6 +6,11 @@ profiles the file, proposes a serializable analysis plan, runs bounded
 multiresolution CE2, describes learned states from their distinguishing
 features, and writes a self-contained HTML report.
 
+If you want to see the complete report before using your own data, run the
+bundled synthetic social-system-style example with `cez demo`. It writes an
+HTML report in one command and makes no claim about real countries or social
+causes; see the [first-analysis guide](first-analysis.md).
+
 ```console
 cez explore observations.csv \
   --entity country_code \

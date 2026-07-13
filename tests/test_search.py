@@ -3,6 +3,7 @@ from causal_emergence_zoo.search import (
     branching_greedy_search,
     greedy_completion,
     pairwise_merges,
+    partition_id,
     singleton_partition,
 )
 
@@ -13,6 +14,13 @@ def test_pairwise_merges_return_one_step_coarsenings():
     assert len(merges) == 6
     assert [[0, 1], [2], [3]] in merges
     assert [[0], [1], [2, 3]] in merges
+
+
+def test_partition_ids_remain_compact_for_existing_fixtures_and_unambiguous_above_nine():
+    assert partition_id([[0, 1], [2, 3]]) == "01|23"
+    assert partition_id([[1, 2, 13]]) == "1,2,13"
+    assert partition_id([[12, 13]]) == "12,13"
+    assert partition_id([[1, 2, 13]]) != partition_id([[12, 13]])
 
 
 def test_greedy_completion_recovers_two_block_macro_scale():

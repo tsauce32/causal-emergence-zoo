@@ -13,6 +13,7 @@ from typing import Any
 from jsonschema import Draft202012Validator
 
 from causal_emergence_zoo.continuous import analyze_continuous_csv
+from causal_emergence_zoo.demo import explore_social_system_demo, social_system_demo_metadata
 from causal_emergence_zoo.explore import explore_csv, write_exploration_json
 from causal_emergence_zoo.io import available_systems, load_system
 from causal_emergence_zoo.narrative import analyze_trajectories
@@ -419,6 +420,10 @@ def narrate_trajectories(args: argparse.Namespace) -> int:
         gain_tolerance=args.gain_tolerance,
         edge_probability_threshold=args.edge_threshold,
         top_k=args.top_k,
+        search_mode=args.search_mode,
+        beam_width=args.beam_width,
+        branching_factor=args.branching_factor,
+        max_partition_evaluations=args.max_partition_evaluations,
         bootstrap_replicates=args.bootstrap,
         bootstrap_seed=args.seed,
     )
@@ -543,6 +548,28 @@ def explore_dataset(args: argparse.Namespace) -> int:
     return 0
 
 
+def explore_demo(args: argparse.Namespace) -> int:
+    """Run the bundled synthetic social-system onboarding analysis."""
+    result = explore_social_system_demo(report_path=args.report)
+    if args.output:
+        write_exploration_json(result, args.output)
+    if args.json:
+        print(json.dumps(result, indent=2, allow_nan=False))
+    else:
+        metadata = social_system_demo_metadata()
+        print(
+            "ran bundled synthetic social-system demo: "
+            f"{metadata['row_count']} country-year rows across "
+            f"{metadata['trajectory_count']} fictional countries"
+        )
+        if args.report:
+            print(f"wrote HTML report: {args.report}")
+        if args.output:
+            print(f"wrote JSON result: {args.output}")
+        print(f"caveat: {metadata['caveat']}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cez",
@@ -586,12 +613,16 @@ def build_parser() -> argparse.ArgumentParser:
     narrate_parser.add_argument("--smoothing", type=float, default=None, help="Additive smoothing per target state.")
     narrate_parser.add_argument("--bootstrap", type=int, default=0, help="Trajectory bootstrap replicates (default: 0).")
     narrate_parser.add_argument("--seed", type=int, default=0, help="Random seed for bootstrap resampling.")
-    narrate_parser.add_argument("--max-states", type=int, default=8, help="Maximum state count for exact CE 2.0 search.")
+    narrate_parser.add_argument("--max-states", type=int, default=8, help="Exact-enumeration ceiling (1-8; auto uses bounded beam above it).")
     narrate_parser.add_argument("--consistency-horizon", type=int, default=5, help="Random-walk horizon for consistency checks.")
     narrate_parser.add_argument("--consistency-tolerance", type=float, default=1e-10, help="Maximum total KL divergence for a valid macro scale.")
     narrate_parser.add_argument("--gain-tolerance", type=float, default=1e-12, help="Minimum CP increment treated as positive.")
     narrate_parser.add_argument("--edge-threshold", type=float, default=0.0, help="Omit macro-transition edges at or below this probability.")
     narrate_parser.add_argument("--top-k", type=int, default=10, help="Number of top consistent scales to retain in output.")
+    narrate_parser.add_argument("--search-mode", choices=["exact", "beam", "auto"], default="auto", help="CE2 search: exact through 8 states, bounded beam, or auto (default; beam for 9-16 states).")
+    narrate_parser.add_argument("--beam-width", type=int, default=20, help="Active paths retained by bounded beam search.")
+    narrate_parser.add_argument("--branching-factor", type=int, default=4, help="Consistent merges retained per active bounded-search path.")
+    narrate_parser.add_argument("--max-partition-evaluations", type=int, default=100_000, help="Hard candidate consistency-check budget for bounded search.")
     narrate_parser.add_argument("--json", action="store_true", help="Print only the JSON narrative graph to stdout.")
     narrate_parser.add_argument("--output", help="Optional file path for the JSON narrative graph.")
     narrate_parser.set_defaults(func=narrate_trajectories)
@@ -605,8 +636,8 @@ def build_parser() -> argparse.ArgumentParser:
     continuous_parser.add_argument("--trajectory-column", help="Contiguous trajectory/group identifier column.")
     continuous_parser.add_argument("--time-column", help="Strictly increasing numeric time column within each grouped trajectory.")
     continuous_parser.add_argument("--row-order-is-time", action="store_true", help="Explicitly declare file row order as temporal when no time column is available.")
-    continuous_parser.add_argument("--microstates", type=int, default=8, help="Learned discrete microstates (2-8 exact; 9-32 with beam or auto search).")
-    continuous_parser.add_argument("--search-mode", choices=["exact", "beam", "auto"], default="exact", help="CE2 search: exact (default), bounded beam, or auto-select by state count.")
+    continuous_parser.add_argument("--microstates", type=int, default=8, help="Learned discrete microstates (2-8 exact; 9-16 bounded beam).")
+    continuous_parser.add_argument("--search-mode", choices=["exact", "beam", "auto"], default="auto", help="CE2 search: exact, bounded beam, or auto (default; beam for 9-16 states).")
     continuous_parser.add_argument("--beam-width", type=int, default=20, help="Active paths retained by approximate beam search.")
     continuous_parser.add_argument("--branching-factor", type=int, default=4, help="Consistent merges retained per active approximate path.")
     continuous_parser.add_argument("--max-partition-evaluations", type=int, default=100_000, help="Hard consistency-evaluation budget for approximate search.")
@@ -646,6 +677,23 @@ def build_parser() -> argparse.ArgumentParser:
     explore_parser.add_argument("--output", default="cez-result.json", help="Full JSON result path.")
     explore_parser.add_argument("--json", action="store_true", help="Also print the JSON result.")
     explore_parser.set_defaults(func=explore_dataset)
+
+    demo_parser = subparsers.add_parser(
+        "demo",
+        help="Run the bundled synthetic social-system example and write an HTML report.",
+    )
+    demo_parser.add_argument(
+        "--report",
+        default="cez-social-demo-report.html",
+        help="Self-contained HTML report path.",
+    )
+    demo_parser.add_argument(
+        "--output",
+        default="cez-social-demo-result.json",
+        help="Full JSON result path.",
+    )
+    demo_parser.add_argument("--json", action="store_true", help="Also print the JSON result.")
+    demo_parser.set_defaults(func=explore_demo)
 
     return parser
 

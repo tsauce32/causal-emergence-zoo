@@ -85,7 +85,7 @@ def test_public_exports_include_legacy_and_v02_entry_points():
 
 def test_runtime_version_matches_release_metadata():
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    assert cez.__version__ == "0.2.0"
+    assert cez.__version__ == "0.2.1"
     assert metadata["project"]["version"] == cez.__version__
 
 

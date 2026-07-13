@@ -158,7 +158,7 @@ def test_continuous_csv_requires_explicit_time_contract_and_stable_source(tmp_pa
         )
 
 
-def test_continuous_analysis_rejects_more_than_exact_state_budget(tmp_path):
+def test_continuous_exact_mode_rejects_more_than_exact_state_budget(tmp_path):
     path = tmp_path / "small.csv"
     path.write_text("time,signal\n0,0\n1,1\n2,0\n", encoding="utf-8")
 
@@ -168,7 +168,29 @@ def test_continuous_analysis_rejects_more_than_exact_state_budget(tmp_path):
             feature_columns=["signal"],
             microstate_count=9,
             time_column="time",
+            search_mode="exact",
         )
+
+
+def test_continuous_auto_mode_uses_bounded_beam_through_sixteen_states(tmp_path):
+    path = tmp_path / "nine-states.csv"
+    rows = ["time,signal"]
+    rows.extend(f"{time},{time % 9}" for time in range(27))
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+    result = analyze_continuous_csv(
+        path,
+        feature_columns=["signal"],
+        microstate_count=9,
+        time_column="time",
+        reservoir_size=100,
+        beam_width=1,
+        branching_factor=1,
+    )
+
+    assert result["search"]["mode"] == "beam"
+    assert not result["search"]["is_exhaustive"]
+    assert result["ce2"]["search_contract"]["supported_state_count_maximum"] == 16
 
 
 def test_continuous_state_support_can_reject_under_supported_encoder_states(tmp_path):

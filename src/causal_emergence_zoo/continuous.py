@@ -3,11 +3,12 @@
 This module does *not* claim a native continuous-state implementation of Causal
 Emergence 2.0.  Instead it learns a frozen, auditable finite-state encoder from a
 bounded reservoir sample, streams the full CSV into a small transition-count
-matrix, and runs the existing exact finite-state CE 2.0 analysis on that model.
+matrix, and runs exact or explicitly bounded finite-state CE 2.0 search on that
+model.
 
 The deliberate contract is two-pass and memory bounded: input rows are never
-materialized, while the learned state space is limited to the small cardinality
-required by exact partition search.
+materialized, while the learned state space is limited to the declared exact or
+bounded-search cardinality.
 """
 
 from __future__ import annotations
@@ -19,7 +20,8 @@ from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
-from causal_emergence_zoo.ce2 import analyze_ce2_path
+from causal_emergence_zoo.approximate import MAX_APPROXIMATE_STATES
+from causal_emergence_zoo.ce2 import MAX_EXACT_STATES, analyze_ce2_path
 from causal_emergence_zoo.evidence import attach_evidence_ledger
 from causal_emergence_zoo.estimation import estimate_tpm_from_transition_counts
 from causal_emergence_zoo.narrative import narrate_tpm
@@ -27,8 +29,8 @@ from causal_emergence_zoo.tabular import TabularSource, adapt_continuous_source
 from causal_emergence_zoo.temporal import derive_temporal_features, temporal_feature_names
 
 
-MAX_EXACT_MICROSTATES = 8
-MAX_APPROXIMATE_MICROSTATES = 32
+MAX_EXACT_MICROSTATES = MAX_EXACT_STATES
+MAX_APPROXIMATE_MICROSTATES = MAX_APPROXIMATE_STATES
 
 
 def fit_continuous_state_encoder(
@@ -393,7 +395,7 @@ def analyze_continuous_csv(
     gain_tolerance: float = 1e-12,
     edge_probability_threshold: float = 0.0,
     top_k: int = 10,
-    search_mode: str = "exact",
+    search_mode: str = "auto",
     beam_width: int = 20,
     branching_factor: int = 4,
     max_partition_evaluations: int = 100_000,
@@ -550,7 +552,21 @@ def analyze_continuous_csv(
     )
 
     narrative["analysis_type"] = "ce2_multiscale_discretized_continuous"
-    narrative["search"] = {"mode": resolved_search_mode, "beam_width": beam_width if resolved_search_mode == "beam" else None, "branching_factor": branching_factor if resolved_search_mode == "beam" else None, "max_partition_evaluations": max_partition_evaluations if resolved_search_mode == "beam" else None, "termination_reason": narrative["ce2"].get("termination_reason", "exact_search")}
+    narrative["search"] = {
+        "mode": resolved_search_mode,
+        "is_exhaustive": narrative["ce2"]["is_exhaustive"],
+        "algorithm": narrative["ce2"].get("algorithm", "exhaustive_ce2_partition_enumeration"),
+        "beam_width": beam_width if resolved_search_mode == "beam" else None,
+        "branching_factor": branching_factor if resolved_search_mode == "beam" else None,
+        "max_partition_evaluations": max_partition_evaluations if resolved_search_mode == "beam" else None,
+        "termination_reason": narrative["ce2"].get("termination_reason", "exact_search"),
+        "endpoint_optimality": narrative["ce2"].get("endpoint_optimality", "exact_over_valid_search_space"),
+        "limitation": (
+            "Bounded beam result: best evaluated candidate, not a global CE 2.0 optimum."
+            if not narrative["ce2"]["is_exhaustive"]
+            else None
+        ),
+    }
     narrative["state_support"] = {**support, "policy": support_policy}
     narrative["input_model"].update(
         {

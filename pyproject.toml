@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "causal-emergence-zoo"
-version = "0.2.0"
+version = "0.2.1"
 description = "Benchmark systems and a versioned CE 2.0 exploration API for causal-emergence research."
 readme = "README.md"
 requires-python = ">=3.10"

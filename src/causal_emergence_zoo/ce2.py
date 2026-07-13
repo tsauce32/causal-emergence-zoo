@@ -19,6 +19,12 @@ from causal_emergence_zoo.partitions import enumerate_partitions
 from causal_emergence_zoo.search import Partition, canonical_partition, partition_id, score_partition
 
 
+# Bell-number enumeration grows beyond a practical and auditable budget very
+# quickly.  Eight states is deliberately a hard implementation limit, not a
+# tuning default that callers can raise into an accidentally intractable run.
+MAX_EXACT_STATES = 8
+
+
 def check_dynamical_consistency(
     tpm: Matrix,
     partition: Partition,
@@ -193,12 +199,18 @@ def discover_ce2_path(
     """
     micro_metrics = compute_metrics(tpm)
     state_count = len(tpm)
-    if max_exhaustive_states < 1:
-        raise ValueError("max_exhaustive_states must be positive.")
+    if not isinstance(max_exhaustive_states, int) or isinstance(max_exhaustive_states, bool):
+        raise ValueError("max_exhaustive_states must be an integer between 1 and 8.")
+    if not 1 <= max_exhaustive_states <= MAX_EXACT_STATES:
+        raise ValueError(
+            "max_exhaustive_states must be between 1 and "
+            f"{MAX_EXACT_STATES}; exhaustive CE 2.0 enumeration is not supported above that limit."
+        )
     if state_count > max_exhaustive_states:
         raise ValueError(
             f"CE 2.0 exhaustive discovery is limited to {max_exhaustive_states} states; "
-            f"received {state_count}. Use a documented CE 2.0 heuristic before interpreting larger systems."
+            f"received {state_count}. Use search_mode='auto' or search_mode='beam' for the "
+            "bounded, non-exhaustive search supported through 16 states."
         )
     if top_k < 1:
         raise ValueError("top_k must be positive.")

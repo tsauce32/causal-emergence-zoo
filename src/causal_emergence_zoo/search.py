@@ -13,8 +13,18 @@ SearchRecord = dict[str, Any]
 
 
 def partition_id(partition: Partition) -> str:
-    """Return the zoo's compact display id for a partition."""
-    return "|".join("".join(str(state) for state in block) for block in canonical_partition(partition))
+    """Return a deterministic, unambiguous display id for a partition.
+
+    The original compact form (``01|23``) is retained for the single-digit
+    state spaces used by the established fixtures.  Concatenating state numbers
+    becomes ambiguous once state ``10`` exists -- for example, ``1213`` could
+    otherwise denote either ``[1, 2, 13]`` or ``[12, 13]``.  Larger state
+    spaces therefore use commas within blocks (``0,1|2,3|10``).
+    """
+    blocks = canonical_partition(partition)
+    if all(0 <= state < 10 for block in blocks for state in block):
+        return "|".join("".join(str(state) for state in block) for block in blocks)
+    return "|".join(",".join(str(state) for state in block) for block in blocks)
 
 
 def singleton_partition(state_count: int) -> Partition:

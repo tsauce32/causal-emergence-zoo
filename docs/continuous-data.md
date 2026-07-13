@@ -8,7 +8,7 @@ rather than bounded-memory sources.
 
 It does **not** implement native continuous-state Causal Emergence 2.0. Instead,
 it learns a small, frozen discrete state model from continuous observations, then
-runs exact CE 2.0 over that reported finite TPM. This distinction is preserved in
+runs exact or explicitly bounded CE 2.0 search over that reported finite TPM. This distinction is preserved in
 the output as `analysis_type: "ce2_multiscale_discretized_continuous"`.
 
 ## What Scales
@@ -27,8 +27,10 @@ reservoir_size × feature_count + microstate_count²
 ```
 
 not with the number of rows. The default reservoir holds 10,000 observations.
-The exact CE 2.0 phase still requires **2–8 learned microstates** because it
-enumerates partitions of the learned TPM.
+Exact CE 2.0 applies to **2–8 learned microstates** because it enumerates
+partitions of the learned TPM. The default `auto` search uses a bounded,
+dynamically consistent beam search for **9–16 learned microstates**; its result
+is explicitly non-exhaustive and is never presented as a global optimum.
 
 ## Required CSV Contract
 
@@ -139,8 +141,9 @@ test for this Markov workflow.
 
 ## Approximate Larger State Models
 
-Exact CE2 search is retained for 2–8 learned microstates. For 9–32 microstates,
-request bounded dynamically-consistent beam search explicitly:
+Exact CE2 search is retained for 2–8 learned microstates. For 9–16
+microstates, the default `auto` mode selects bounded dynamically-consistent
+beam search (or request it explicitly):
 
 ```bash
 cez narrate-continuous observations.csv \
@@ -149,7 +152,8 @@ cez narrate-continuous observations.csv \
   --microstates 16 --search-mode beam --beam-width 20 --branching-factor 4
 ```
 
-This result is a best sampled hierarchy, not a global partition optimum. Use the
+This result is a best sampled hierarchy, not a global partition optimum. State
+budgets above 16 are rejected by the current implementation. Use the
 multiresolution workflow specified in `multiresolution-ce2-spec.md` before
 interpreting a larger learned state budget as a substantive scale.
 

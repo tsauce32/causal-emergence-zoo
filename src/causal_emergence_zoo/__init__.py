@@ -1,9 +1,14 @@
 """Public API for causal-emergence-zoo."""
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
-from causal_emergence_zoo.ce2 import analyze_ce2_path, check_dynamical_consistency, discover_ce2_path
-from causal_emergence_zoo.approximate import approximate_ce2_path
+from causal_emergence_zoo.ce2 import (
+    MAX_EXACT_STATES,
+    analyze_ce2_path,
+    check_dynamical_consistency,
+    discover_ce2_path,
+)
+from causal_emergence_zoo.approximate import MAX_APPROXIMATE_STATES, approximate_ce2_path
 from causal_emergence_zoo.coarse_grain import coarse_grain_tpm
 from causal_emergence_zoo.estimation import (
     estimate_tpm_from_trajectories,
@@ -43,6 +48,14 @@ from causal_emergence_zoo.social_atlas import (
     assemble_social_atlas,
     load_country_year_source,
     write_social_atlas_csv,
+)
+from causal_emergence_zoo.demo import (
+    SOCIAL_SYSTEM_DEMO_CAVEAT,
+    SOCIAL_SYSTEM_DEMO_FEATURE_COLUMNS,
+    SocialSystemDemoSource,
+    explore_social_system_demo,
+    social_system_demo_metadata,
+    social_system_demo_source,
 )
 from causal_emergence_zoo.temporal import derive_temporal_features, temporal_feature_names
 from causal_emergence_zoo.explore import (
@@ -107,6 +120,8 @@ __all__ = [
     "ExplorationResult",
     "NarrativeReport",
     "StateModel",
+    "MAX_APPROXIMATE_STATES",
+    "MAX_EXACT_STATES",
     "analyze_ce2_path",
     "analyze_continuous_csv",
     "analyze_continuous_typed",
@@ -138,6 +153,7 @@ __all__ = [
     "evidence_ledger_from_dict",
     "explore",
     "explore_csv",
+    "explore_social_system_demo",
     "explore_typed",
     "exploration_result_from_dict",
     "enumerate_partitions",
@@ -170,6 +186,11 @@ __all__ = [
     "recommend_analysis_plan",
     "recommend_analysis_plan_typed",
     "render_exploration_report",
+    "SOCIAL_SYSTEM_DEMO_CAVEAT",
+    "SOCIAL_SYSTEM_DEMO_FEATURE_COLUMNS",
+    "social_system_demo_metadata",
+    "social_system_demo_source",
+    "SocialSystemDemoSource",
     "write_social_atlas_csv",
     "write_exploration_json",
     "validate_system",

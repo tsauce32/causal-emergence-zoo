@@ -14,8 +14,8 @@ import random
 from collections.abc import Hashable, Iterable, Sequence
 from typing import Any
 
-from causal_emergence_zoo.ce2 import discover_ce2_path
-from causal_emergence_zoo.approximate import approximate_ce2_path
+from causal_emergence_zoo.ce2 import MAX_EXACT_STATES, discover_ce2_path
+from causal_emergence_zoo.approximate import MAX_APPROXIMATE_STATES, approximate_ce2_path
 from causal_emergence_zoo.estimation import (
     State,
     Trajectory,
@@ -37,7 +37,7 @@ def narrate_tpm(
     gain_tolerance: float = 1e-12,
     edge_probability_threshold: float = 0.0,
     top_k: int = 10,
-    search_mode: str = "exact",
+    search_mode: str = "auto",
     beam_width: int = 20,
     branching_factor: int = 4,
     max_partition_evaluations: int = 100_000,
@@ -54,12 +54,18 @@ def narrate_tpm(
 
     metrics = compute_metrics(tpm)
     labels = _resolve_labels(len(tpm), state_labels)
-    if search_mode == "exact":
-        ce2 = discover_ce2_path(tpm, max_exhaustive_states=max_exhaustive_states, consistency_horizon=consistency_horizon, consistency_tolerance=consistency_tolerance, gain_tolerance=gain_tolerance, top_k=top_k)
-    elif search_mode == "beam":
-        ce2 = approximate_ce2_path(tpm, beam_width=beam_width, branching_factor=branching_factor, max_partition_evaluations=max_partition_evaluations, consistency_horizon=consistency_horizon, consistency_tolerance=consistency_tolerance)
-    else:
-        raise ValueError("search_mode must be 'exact' or 'beam'.")
+    ce2 = _discover_ce2_path(
+        tpm,
+        search_mode=search_mode,
+        max_exhaustive_states=max_exhaustive_states,
+        consistency_horizon=consistency_horizon,
+        consistency_tolerance=consistency_tolerance,
+        gain_tolerance=gain_tolerance,
+        top_k=top_k,
+        beam_width=beam_width,
+        branching_factor=branching_factor,
+        max_partition_evaluations=max_partition_evaluations,
+    )
     model = {
         "kind": "provided_transition_model",
         "state_labels": labels,
@@ -94,6 +100,62 @@ def narrate_tpm_typed(
     return NarrativeReport.from_legacy_dict(narrate_tpm(tpm, **kwargs))
 
 
+def _discover_ce2_path(
+    tpm: Matrix,
+    *,
+    search_mode: str,
+    max_exhaustive_states: int,
+    consistency_horizon: int,
+    consistency_tolerance: float,
+    gain_tolerance: float,
+    top_k: int,
+    beam_width: int,
+    branching_factor: int,
+    max_partition_evaluations: int,
+) -> dict[str, Any]:
+    """Select exact or bounded discovery while keeping result provenance explicit."""
+    if search_mode not in {"exact", "beam", "auto"}:
+        raise ValueError("search_mode must be 'exact', 'beam', or 'auto'.")
+    if (
+        not isinstance(max_exhaustive_states, int)
+        or isinstance(max_exhaustive_states, bool)
+        or not 1 <= max_exhaustive_states <= MAX_EXACT_STATES
+    ):
+        raise ValueError(
+            f"max_exhaustive_states must be an integer between 1 and {MAX_EXACT_STATES}."
+        )
+
+    resolved_search_mode = (
+        "exact"
+        if search_mode == "auto" and len(tpm) <= max_exhaustive_states
+        else ("beam" if search_mode == "auto" else search_mode)
+    )
+    if resolved_search_mode == "exact":
+        return discover_ce2_path(
+            tpm,
+            max_exhaustive_states=max_exhaustive_states,
+            consistency_horizon=consistency_horizon,
+            consistency_tolerance=consistency_tolerance,
+            gain_tolerance=gain_tolerance,
+            top_k=top_k,
+        )
+    if len(tpm) > MAX_APPROXIMATE_STATES:
+        raise ValueError(
+            "Bounded CE 2.0 search supports at most "
+            f"{MAX_APPROXIMATE_STATES} states; received {len(tpm)}."
+        )
+    return approximate_ce2_path(
+        tpm,
+        beam_width=beam_width,
+        branching_factor=branching_factor,
+        max_partition_evaluations=max_partition_evaluations,
+        consistency_horizon=consistency_horizon,
+        consistency_tolerance=consistency_tolerance,
+        gain_tolerance=gain_tolerance,
+        top_k=top_k,
+    )
+
+
 def analyze_trajectories(
     trajectories: Iterable[Trajectory],
     *,
@@ -105,6 +167,10 @@ def analyze_trajectories(
     gain_tolerance: float = 1e-12,
     edge_probability_threshold: float = 0.0,
     top_k: int = 10,
+    search_mode: str = "auto",
+    beam_width: int = 20,
+    branching_factor: int = 4,
+    max_partition_evaluations: int = 100_000,
     bootstrap_replicates: int = 0,
     bootstrap_seed: int = 0,
 ) -> dict[str, Any]:
@@ -132,6 +198,10 @@ def analyze_trajectories(
         gain_tolerance=gain_tolerance,
         edge_probability_threshold=edge_probability_threshold,
         top_k=top_k,
+        search_mode=search_mode,
+        beam_width=beam_width,
+        branching_factor=branching_factor,
+        max_partition_evaluations=max_partition_evaluations,
         source={
             "kind": "empirical_trajectory",
             "causal_interpretation": "model_derived_not_interventionally_identified",
@@ -158,6 +228,10 @@ def analyze_trajectories(
         consistency_horizon=consistency_horizon,
         consistency_tolerance=consistency_tolerance,
         gain_tolerance=gain_tolerance,
+        search_mode=search_mode,
+        beam_width=beam_width,
+        branching_factor=branching_factor,
+        max_partition_evaluations=max_partition_evaluations,
         replicates=bootstrap_replicates,
         seed=bootstrap_seed,
     )
@@ -199,6 +273,16 @@ def build_narrative_graph(
         edge_probability_threshold=edge_probability_threshold,
     )
     summary = _summary(model, ce2, has_emergence, profile)
+    limitations = [
+        "Exact CE 2.0 discovery is deliberately limited to small state spaces because partition enumeration is combinatorial.",
+        "Dynamical consistency is checked over the declared finite horizon, not every possible future time step.",
+        "This v0 does not yet implement black-boxing, higher-order macrostates, or native continuous-state CE 2.0; bounded beam search is available but is not globally optimal.",
+    ]
+    if not ce2["is_exhaustive"]:
+        limitations.append(
+            "This result used a bounded approximate search: its endpoint is best among the evaluated "
+            "candidates, not a global CE 2.0 optimum. Inspect ce2.search_contract and ce2.search_coverage."
+        )
 
     return {
         "schema_version": "0.2.0",
@@ -223,7 +307,7 @@ def build_narrative_graph(
             "edges": edges,
             "claims": claims,
             "evidence": evidence,
-            "caveats": _caveats(model),
+            "caveats": _caveats(model, ce2),
         },
         "assumptions": [
             "The system is represented as a finite, time-homogeneous, first-order Markov model.",
@@ -231,11 +315,7 @@ def build_narrative_graph(
             "Only hard state partitions and finite-horizon dynamically consistent macro models are considered.",
             "Narrative statements describe the fitted model; they do not by themselves identify real-world intervention effects.",
         ],
-        "limitations": [
-            "Exact CE 2.0 discovery is deliberately limited to small state spaces because partition enumeration is combinatorial.",
-            "Dynamical consistency is checked over the declared finite horizon, not every possible future time step.",
-            "This v0 does not yet implement black-boxing, higher-order macrostates, or native continuous-state CE 2.0; bounded beam search is available but is not globally optimal.",
-        ],
+        "limitations": limitations,
     }
 
 
@@ -249,6 +329,10 @@ def _bootstrap_stability(
     consistency_horizon: int,
     consistency_tolerance: float,
     gain_tolerance: float,
+    search_mode: str,
+    beam_width: int,
+    branching_factor: int,
+    max_partition_evaluations: int,
     replicates: int,
     seed: int,
 ) -> dict[str, Any]:
@@ -274,13 +358,17 @@ def _bootstrap_stability(
                 state_labels=state_labels,
                 smoothing=smoothing,
             )
-            ce2 = discover_ce2_path(
+            ce2 = _discover_ce2_path(
                 estimated["tpm"],
+                search_mode=search_mode,
                 max_exhaustive_states=max_exhaustive_states,
                 consistency_horizon=consistency_horizon,
                 consistency_tolerance=consistency_tolerance,
                 gain_tolerance=gain_tolerance,
                 top_k=1,
+                beam_width=beam_width,
+                branching_factor=branching_factor,
+                max_partition_evaluations=max_partition_evaluations,
             )
         except ValueError:
             failures += 1
@@ -326,7 +414,7 @@ def _graph_components(
     micro_cp = ce2["microscale"]["cp"]
     endpoint = ce2["endpoint"]
     gain = ce2["causal_apportioning"]["endpoint_cp_gain"]
-    claim_caveat_ids = _claim_caveat_ids(model)
+    claim_caveat_ids = _claim_caveat_ids(model, ce2)
     evidence: list[dict[str, Any]] = [
         {
             "id": "e:micro-cp",
@@ -451,6 +539,8 @@ def _summary(model: dict[str, Any], ce2: dict[str, Any], has_emergence: bool, pr
         )
     else:
         headline = "No dynamically consistent coarser model improved CP on the selected CE 2.0 path."
+    if not ce2["is_exhaustive"]:
+        headline += " This is a bounded-search result, not a global CE 2.0 optimum."
     return {
         "headline": headline,
         "hierarchy_profile": profile,
@@ -489,12 +579,18 @@ def _render_narrative(
         if complexity["status"] == "defined"
         else " Emergent-complexity entropy is not defined for this signed or empty gain profile."
     )
+    bounded_search_clause = (
+        " Because the search was bounded, this endpoint is best among the evaluated candidates rather "
+        "than a global CE 2.0 optimum."
+        if not ce2["is_exhaustive"]
+        else ""
+    )
     return (
         f"CE 2.0 selected the dynamically consistent endpoint {endpoint['partition_id']} with "
         f"{endpoint['macro_state_count']} macro states: {macro_labels}. Its CP is {endpoint['cp']:.6f}, "
         f"a gain of {gain:.6f} over the microscale along the selected path.{complexity_clause} "
         "The transition statements in this graph describe the fitted Markov model and should not be "
-        "read as independently identified real-world interventions."
+        f"read as independently identified real-world interventions.{bounded_search_clause}"
     )
 
 
@@ -534,7 +630,7 @@ def _hierarchy_profile(ce2: dict[str, Any], gain_tolerance: float) -> str:
     return "mesoscale"
 
 
-def _caveats(model: dict[str, Any]) -> list[dict[str, Any]]:
+def _caveats(model: dict[str, Any], ce2: dict[str, Any]) -> list[dict[str, Any]]:
     caveats = [
         {
             "id": "c:model_scope",
@@ -564,13 +660,23 @@ def _caveats(model: dict[str, Any]) -> list[dict[str, Any]]:
                 "text": "Continuous observations were mapped to frozen learned microstates; the CE 2.0 result is conditional on feature scaling, reservoir sampling, and the reported encoder.",
             }
         )
+    if not ce2["is_exhaustive"]:
+        caveats.append(
+            {
+                "id": "c:bounded_search",
+                "kind": "search_limit",
+                "text": "A bounded beam search evaluated only a score-directed subset of partitions; the reported endpoint is not a global CE 2.0 optimum.",
+            }
+        )
     return caveats
 
 
-def _claim_caveat_ids(model: dict[str, Any]) -> list[str]:
+def _claim_caveat_ids(model: dict[str, Any], ce2: dict[str, Any]) -> list[str]:
     ids = ["c:model_scope", "c:causal_identification"]
     if model["source"]["kind"] == "streaming_continuous_csv":
         ids.append("c:continuous_discretization")
+    if not ce2["is_exhaustive"]:
+        ids.append("c:bounded_search")
     return ids
 
 

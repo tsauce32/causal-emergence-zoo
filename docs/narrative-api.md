@@ -17,7 +17,8 @@ The v0 workflow supports:
 
 - Independent trajectories of discrete states
 - Empirical first-order, time-homogeneous Markov TPM estimation
-- Exhaustive CE 2.0 search for up to eight states
+- Exhaustive CE 2.0 search for 2–8 states
+- Deterministic, bounded dynamically-consistent beam search for 9–16 states
 - Strict finite-horizon dynamical-consistency checks
 - Endpoint selection by CP, then a longest valid nested path
 - Consecutive CP apportioning and emergent-complexity entropy
@@ -27,9 +28,9 @@ The v0 workflow supports:
 It supports a separate streaming bridge from continuous CSV observations to a
 frozen learned finite-state model. It does not yet support native continuous-state
 CE 2.0, learned latent dynamics beyond the declared k-means encoder,
-black-boxing, higher-order macrostates, unbounded consistency checks, or scalable
-CE 2.0 heuristics. Do not label a larger-state heuristic as an exact CE 2.0
-result.
+black-boxing, higher-order macrostates, unbounded consistency checks, or CE 2.0
+search beyond the declared 16-state bounded envelope. Do not label a larger-state
+heuristic as an exact CE 2.0 result.
 
 ## Quick Start
 
@@ -86,6 +87,24 @@ The `ce2` field stores the full path, increments, endpoint, consistency policy,
 and emergent-complexity result. The `narrative_graph` stores nodes, model
 transition edges, claims, evidence IDs, and caveats. Prose is only a rendering
 of this graph.
+
+## Bounded 9–16 State Search
+
+`search_mode="auto"` is the default for `narrate_tpm()` and
+`analyze_trajectories()`: it preserves exhaustive discovery through eight
+states, then uses the bounded beam procedure through 16 states. The result
+keeps the same CE2 hard-partition and finite-horizon consistency definitions,
+but it evaluates only a deterministic, score-directed subset of the partition
+lattice.
+
+For a bounded result, inspect `ce2.search_contract`, `ce2.search_coverage`, and
+`ce2.termination_reason`. Its summary, prose, and every narrative claim carry a
+bounded-search caveat. `endpoint_optimality: "best_sampled_not_global"` means
+exactly that: the endpoint is best among the candidates evaluated under the
+declared beam and budget, not a global CE2 optimum. Endpoint selection includes
+every dynamically consistent candidate evaluated from a retained parent, even
+if that candidate was not retained for further beam expansion. `search_mode="exact"`
+continues to fail above eight states, and all modes reject more than 16 states.
 
 ## Causal Interpretation
 
